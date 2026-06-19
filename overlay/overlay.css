@@ -1,0 +1,253 @@
+/* overlay.css
+ *
+ * Styling for the OBS Browser Source overlay. The aesthetic is refined
+ * minimalism: clean rounded key caps, tight borders, subtle state changes.
+ * No glow halos, no RGB, no drop shadows on pressed keys (except the optional
+ * barely-there subtle-glow preset), no gamer styling.
+ *
+ * All theme values arrive at runtime as CSS custom properties set on
+ * #overlay by overlay.js. The defaults below match the minimal-dark preset so
+ * the page looks correct even before the first config message arrives. */
+
+:root {
+  --key-idle: #1c1c1c;
+  --key-pressed: #ffffff;
+  --key-held: #e0e0e0;
+  --text-idle: #555555;
+  --text-pressed: #111111;
+  --border-idle: #2e2e2e;
+  --border-pressed: #ffffff;
+  --key-size: 48px;
+  --key-gap: 6px;
+  --scale: 1;
+  --bg-opacity: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  /* Fully transparent so OBS composites the overlay cleanly over the scene. */
+  background: rgba(0, 0, 0, 0);
+  overflow: hidden;
+  font-family: "DM Mono", monospace;
+  /* Disable text selection. The overlay is a display surface, not a document. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.overlay {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(var(--key-gap) * 2);
+  padding: 12px;
+  /* Optional faint backing. Defaults to fully transparent. */
+  background: rgba(0, 0, 0, var(--bg-opacity));
+  transform: scale(var(--scale));
+  transform-origin: top left;
+}
+
+/* Keyboard grid. Each key is placed by its configured x/y, with optional span. */
+.keyboard {
+  display: grid;
+  grid-auto-rows: var(--key-size);
+  grid-auto-columns: var(--key-size);
+  gap: var(--key-gap);
+}
+
+.key {
+  grid-row: var(--row);
+  grid-column: var(--col) / span var(--span, 1);
+  height: var(--key-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+
+  background: var(--key-idle);
+  color: var(--text-idle);
+  border: 1.5px solid var(--border-idle);
+  border-radius: 8px;
+
+  font-size: calc(var(--key-size) * 0.3);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  white-space: nowrap;
+
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+/* Pressed state: clean and immediately obvious, not loud. Used for taps and the
+ * initial moment of a press. */
+.key.pressed {
+  background: var(--key-pressed);
+  color: var(--text-pressed);
+  border-color: var(--border-pressed);
+}
+
+/* Held state: a sustained version of pressed, visually distinct but restrained.
+ * Applied after a key has been down past the hold threshold. */
+.key.held {
+  background: var(--key-held);
+  color: var(--text-pressed);
+  border-color: var(--border-pressed);
+}
+
+/* Combo success flash. A combo cap is idle until its keys are pressed within
+ * the timing window, then it flashes the pressed colors with a thin ring drawn
+ * in the theme's pressed border color, so a successful tight-timing hit reads
+ * clearly without a loud or neon effect. */
+.key.combo-hit {
+  box-shadow: 0 0 0 2px var(--border-pressed);
+}
+
+/* Animation styles. The container carries one of these classes. */
+
+/* fade: state changes ease in and out via the transition above. No extra rules
+ * are needed. */
+
+/* pop: a subtle scale on press. Intentionally small. */
+.overlay.anim-pop .key.pressed,
+.overlay.anim-pop .key.held {
+  transform: scale(1.04);
+}
+
+/* none: remove transitions for instant state changes. */
+.overlay.anim-none .key {
+  transition: none;
+}
+
+/* subtle-glow preset: a soft, barely-there brightness on pressed keys. This is
+ * not a neon glow. Spread 4px, no offset, low opacity. */
+.overlay.theme-subtle-glow .key.pressed,
+.overlay.theme-subtle-glow .key.held {
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.15);
+}
+
+/* Mouse schematic. Sits below the keyboard cluster as a clean shape. */
+.mouse {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--key-gap);
+}
+
+.mouse-body {
+  position: relative;
+  width: calc(var(--key-size) * 1.6);
+  height: calc(var(--key-size) * 2.4);
+  border: 1.5px solid var(--border-idle);
+  border-radius: calc(var(--key-size) * 0.8) calc(var(--key-size) * 0.8) calc(var(--key-size) * 0.7) calc(var(--key-size) * 0.7);
+  background: var(--key-idle);
+  overflow: hidden;
+}
+
+/* Top half split into left and right buttons. */
+.mouse-btn {
+  position: absolute;
+  top: 0;
+  height: 46%;
+  width: 50%;
+  background: var(--key-idle);
+  transition: background-color 140ms ease;
+}
+
+.mouse-btn.lmb {
+  left: 0;
+  border-right: 1px solid var(--border-idle);
+}
+
+.mouse-btn.rmb {
+  right: 0;
+}
+
+.mouse-btn.active {
+  background: var(--key-pressed);
+}
+
+/* Scroll wheel and middle button, centered near the top. */
+.mouse-wheel {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16%;
+  height: 26%;
+  border: 1.5px solid var(--border-idle);
+  border-radius: 999px;
+  background: var(--key-idle);
+  transition: background-color 140ms ease;
+}
+
+.mouse-wheel.active {
+  background: var(--key-pressed);
+}
+
+/* Brief flash for scroll direction. */
+.mouse-wheel.scroll-up,
+.mouse-wheel.scroll-down {
+  background: var(--key-held);
+}
+
+/* Side buttons M4 and M5 on the left flank. */
+.mouse-side {
+  position: absolute;
+  left: -1.5px;
+  width: 14%;
+  height: 14%;
+  background: var(--key-idle);
+  border: 1.5px solid var(--border-idle);
+  border-radius: 4px;
+  transition: background-color 140ms ease;
+}
+
+.mouse-side.m4 {
+  top: 30%;
+}
+
+.mouse-side.m5 {
+  top: 47%;
+}
+
+.mouse-side.active {
+  background: var(--key-pressed);
+}
+
+/* Per-button click counters, shown as small muted numbers beside the mouse. */
+.mouse-counters {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-idle);
+  font-size: calc(var(--key-size) * 0.24);
+  line-height: 1.4;
+}
+
+.mouse-counter {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.mouse-counter .label {
+  opacity: 0.7;
+}
+
+/* KPS counter. Small, muted, monospace, sits under the cluster. */
+.kps {
+  color: var(--text-idle);
+  font-size: calc(var(--key-size) * 0.26);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.kps .value {
+  color: var(--key-pressed);
+  font-weight: 500;
+}

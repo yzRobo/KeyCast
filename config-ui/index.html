@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KeyCast</title>
+
+  <!-- Config UI font: Geist, with a system-ui fallback. Loaded from Google
+       Fonts. This is a font request only. No input data leaves the machine. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="config-ui.css" />
+</head>
+<body>
+  <div class="layout">
+    <!-- Left column: scrollable settings -->
+    <main class="settings">
+      <!-- Update banner: pinned to the top of the settings column so a ready
+           update is visible without scrolling to the Updates section. -->
+      <div id="updateBanner" class="update-banner" hidden>
+        <span id="updateBannerText" class="update-banner-text"></span>
+        <div class="update-banner-actions">
+          <button id="updateBannerInstall" class="btn primary" hidden>Restart &amp; Update</button>
+          <button id="updateBannerDismiss" class="btn" title="Hide this notice">Later</button>
+        </div>
+      </div>
+
+      <header class="app-header">
+        <div>
+          <div class="app-title">KeyCast</div>
+          <div class="app-subtitle">Real-time input overlay configuration</div>
+        </div>
+        <div id="appVersion" class="app-version"></div>
+      </header>
+
+      <!-- Profile selector -->
+      <div class="profile-bar">
+        <select id="profileSelect" class="select" aria-label="Active profile"></select>
+        <button id="profileAdd" class="btn icon" title="New profile">Add</button>
+        <button id="profileRename" class="btn" title="Rename profile">Rename</button>
+        <button id="profileDuplicate" class="btn" title="Duplicate profile">Duplicate</button>
+        <button id="profileDelete" class="btn danger" title="Delete profile">Delete</button>
+      </div>
+
+      <!-- Keyboard -->
+      <section class="section">
+        <div class="section-header">Keyboard</div>
+        <div class="row">
+          <span class="row-label">Show keyboard</span>
+          <label class="toggle">
+            <input type="checkbox" id="kbEnabled" />
+            <span class="track"></span><span class="thumb"></span>
+          </label>
+        </div>
+        <div id="keyboardEditor">
+          <div class="editor-hint">
+            Drag a key to move it. Dropping it onto other keys bumps them down a
+            row to make room. Drag its right edge to make it wider. Drag across
+            empty space to select several keys, or shift-click to add and remove
+            keys from a selection, then move them together. Use the Key size
+            slider in the Theme section for overall size.
+            <br />
+            Combo: join keys with a plus sign in the Key field (for example
+            space+ctrl) to make one cap that flashes when both are pressed within
+            the timing window. The ms field sets that window. This is great for
+            inputs like the Apex Superglide.
+          </div>
+          <div id="layoutEditor" class="layout-editor"></div>
+          <div class="key-row-head">
+            <span title="The key name, for example w or space. Join keys with a plus sign (space+ctrl) to make a timing combo.">Key</span>
+            <span title="Text shown on the cap, for example JUMP.">Label</span>
+            <span title="Column position on the grid.">X</span>
+            <span title="Row position on the grid.">Y</span>
+            <span title="How many columns wide the cap is.">Span</span>
+            <span title="Combo timing window in milliseconds. Only applies when the Key field is a combo (contains a plus sign).">ms</span>
+            <span></span>
+          </div>
+          <div id="keyList" class="key-list"></div>
+          <button id="keyAdd" class="btn">Add key</button>
+        </div>
+      </section>
+
+      <!-- Superglide preset -->
+      <section class="section">
+        <div class="section-header">Superglide</div>
+        <div class="row">
+          <span class="row-label">Show Superglide combo
+            <span class="row-sublabel">
+              A ready-made timing combo for the Apex Legends Superglide. One cap
+              that flashes only when you hit the input cleanly. Turn this on, then
+              enter the two keys you use.
+            </span>
+          </span>
+          <label class="toggle">
+            <input type="checkbox" id="sgEnabled" />
+            <span class="track"></span><span class="thumb"></span>
+          </label>
+        </div>
+
+        <div id="sgFields" hidden>
+          <div class="row">
+            <span class="row-label">First key (jump)
+              <span class="row-sublabel">Pressed first</span>
+            </span>
+            <input type="text" id="sgKey1" class="text-input sg-key"
+                   title="The key you press first. For a Superglide this is jump." />
+          </div>
+          <div class="row">
+            <span class="row-label">Second key (crouch)
+              <span class="row-sublabel">Pressed just after, within the window</span>
+            </span>
+            <input type="text" id="sgKey2" class="text-input sg-key"
+                   title="The key you press second. For a Superglide this is crouch." />
+          </div>
+          <div class="row">
+            <span class="row-label">Timing window (ms)
+              <span class="row-sublabel">How soon after the first key the second must land</span>
+            </span>
+            <input type="number" id="sgWindow" class="number-input" min="1" max="2000"
+                   title="Lower this at higher frame rates. About one frame is the target." />
+          </div>
+          <div class="sg-tip">
+            Order matters: the first key (jump) must land before the second key
+            (crouch), and the second must follow within the timing window. The
+            window gets tighter at higher frame rates. One frame is about 16 ms at
+            60 FPS and about 7 ms at 144 FPS, so start near one frame for your FPS
+            and adjust from there. Drag the SUPERGLIDE cap on the grid above to
+            position it.
+          </div>
+        </div>
+      </section>
+
+      <!-- Mouse -->
+      <section class="section">
+        <div class="section-header">Mouse</div>
+        <div class="row">
+          <span class="row-label">Show mouse</span>
+          <label class="toggle">
+            <input type="checkbox" id="mouseEnabled" />
+            <span class="track"></span><span class="thumb"></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <span class="row-label">Left button (LMB)
+            <span class="row-sublabel">Show on overlay and click counter</span>
+          </span>
+          <div class="inline-label">
+            <label class="toggle"><input type="checkbox" id="mouseLmbShow" /><span class="track"></span><span class="thumb"></span></label>
+            <label class="toggle"><input type="checkbox" id="mouseLmbCounter" /><span class="track"></span><span class="thumb"></span></label>
+          </div>
+        </div>
+        <div class="row">
+          <span class="row-label">Right button (RMB)
+            <span class="row-sublabel">Show on overlay and click counter</span>
+          </span>
+          <div class="inline-label">
+            <label class="toggle"><input type="checkbox" id="mouseRmbShow" /><span class="track"></span><span class="thumb"></span></label>
+            <label class="toggle"><input type="checkbox" id="mouseRmbCounter" /><span class="track"></span><span class="thumb"></span></label>
+          </div>
+        </div>
+        <div class="row">
+          <span class="row-label">Middle button (MMB)
+            <span class="row-sublabel">Show on overlay and click counter</span>
+          </span>
+          <div class="inline-label">
+            <label class="toggle"><input type="checkbox" id="mouseMmbShow" /><span class="track"></span><span class="thumb"></span></label>
+            <label class="toggle"><input type="checkbox" id="mouseMmbCounter" /><span class="track"></span><span class="thumb"></span></label>
+          </div>
+        </div>
+        <div class="row">
+          <span class="row-label">Side button 4 (M4)
+            <span class="row-sublabel">Show on overlay and click counter</span>
+          </span>
+          <div class="inline-label">
+            <label class="toggle"><input type="checkbox" id="mouseM4Show" /><span class="track"></span><span class="thumb"></span></label>
+            <label class="toggle"><input type="checkbox" id="mouseM4Counter" /><span class="track"></span><span class="thumb"></span></label>
+          </div>
+        </div>
+        <div class="row">
+          <span class="row-label">Side button 5 (M5)
+            <span class="row-sublabel">Show on overlay and click counter</span>
+          </span>
+          <div class="inline-label">
+            <label class="toggle"><input type="checkbox" id="mouseM5Show" /><span class="track"></span><span class="thumb"></span></label>
+            <label class="toggle"><input type="checkbox" id="mouseM5Counter" /><span class="track"></span><span class="thumb"></span></label>
+          </div>
+        </div>
+        <div class="row">
+          <span class="row-label">Scroll wheel flash</span>
+          <label class="toggle"><input type="checkbox" id="mouseScroll" /><span class="track"></span><span class="thumb"></span></label>
+        </div>
+      </section>
+
+      <!-- Theme -->
+      <section class="section">
+        <div class="section-header">Theme</div>
+        <div class="row">
+          <span class="row-label">Preset</span>
+          <select id="themePreset" class="select">
+            <option value="minimal-dark">Minimal Dark</option>
+            <option value="minimal-light">Minimal Light</option>
+            <option value="subtle-glow">Subtle Glow</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <span class="row-label">Key idle background</span>
+          <div class="color-field" data-color="keyIdle"></div>
+        </div>
+        <div class="row">
+          <span class="row-label">Key pressed background</span>
+          <div class="color-field" data-color="keyPressed"></div>
+        </div>
+        <div class="row">
+          <span class="row-label">Key held background</span>
+          <div class="color-field" data-color="keyHeld"></div>
+        </div>
+        <div class="row">
+          <span class="row-label">Text idle</span>
+          <div class="color-field" data-color="textIdle"></div>
+        </div>
+        <div class="row">
+          <span class="row-label">Text pressed</span>
+          <div class="color-field" data-color="textPressed"></div>
+        </div>
+        <div class="row">
+          <span class="row-label">Border idle</span>
+          <div class="color-field" data-color="borderIdle"></div>
+        </div>
+        <div class="row">
+          <span class="row-label">Border pressed</span>
+          <div class="color-field" data-color="borderPressed"></div>
+        </div>
+
+        <div class="row">
+          <span class="row-label">Animation</span>
+          <select id="themeAnimation" class="select">
+            <option value="fade">Fade</option>
+            <option value="pop">Pop</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <span class="row-label">Key size</span>
+          <div class="slider-field">
+            <input type="range" id="sliderKeySize" min="24" max="128" step="1" />
+            <span class="slider-value" id="valKeySize"></span>
+          </div>
+        </div>
+        <div class="row">
+          <span class="row-label">Key gap</span>
+          <div class="slider-field">
+            <input type="range" id="sliderKeyGap" min="0" max="48" step="1" />
+            <span class="slider-value" id="valKeyGap"></span>
+          </div>
+        </div>
+        <div class="row">
+          <span class="row-label">Global scale</span>
+          <div class="slider-field">
+            <input type="range" id="sliderScale" min="0.5" max="3" step="0.05" />
+            <span class="slider-value" id="valScale"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Counters -->
+      <section class="section">
+        <div class="section-header">Counters</div>
+        <div class="row">
+          <span class="row-label">Keys per second (KPS)</span>
+          <label class="toggle"><input type="checkbox" id="kpsToggle" /><span class="track"></span><span class="thumb"></span></label>
+        </div>
+      </section>
+
+      <!-- Server -->
+      <section class="section">
+        <div class="section-header">Server</div>
+        <div class="row">
+          <span class="row-label">Port
+            <span class="row-sublabel">The overlay and WebSocket share this port</span>
+          </span>
+          <input type="number" id="portInput" class="number-input" min="1" max="65535" step="1" />
+        </div>
+      </section>
+
+      <!-- OBS Browser Source URLs -->
+      <section class="section">
+        <div class="section-header" title="In OBS: add a Browser source, paste a URL below, and set the size to about 600 by 500. Leave the background transparent.">OBS Browser Source</div>
+        <div class="obs-tip">
+          In OBS, add a Browser source and paste a URL below. Set the source size
+          to about 600 wide by 500 tall (adjust to fit your layout), and leave the
+          background transparent. The overlay reconnects on its own if KeyCast
+          restarts.
+        </div>
+        <div class="url-block">
+          <div class="url-line">
+            <span class="url-label">Single PC</span>
+            <span id="urlLocalhost" class="url-value"></span>
+            <button id="copyLocalhost" class="btn">Copy</button>
+          </div>
+          <div class="url-line">
+            <span class="url-label">2PC / LAN</span>
+            <span id="urlLan" class="url-value"></span>
+            <button id="copyLan" class="btn">Copy</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2PC connection helper -->
+      <section class="section">
+        <div class="section-header">2PC Connection</div>
+        <div class="row">
+          <span class="row-label">Allow on local network
+            <span class="row-sublabel">
+              Adds a Windows Firewall rule so a second PC can reach the overlay.
+              Only needed if the overlay loads here but not on the streaming PC.
+              A Windows permission prompt will appear; this is expected.
+            </span>
+          </span>
+          <button id="fixFirewall" class="btn">Allow through firewall</button>
+        </div>
+      </section>
+
+      <!-- Updates -->
+      <section class="section">
+        <div class="section-header">Updates</div>
+        <div class="row">
+          <span class="row-label">App updates
+            <span class="row-sublabel" id="updateStatus">
+              KeyCast checks for new releases automatically. You can also check now.
+            </span>
+          </span>
+          <div class="update-actions">
+            <button id="updateCheck" class="btn">Check for updates</button>
+            <button id="updateInstall" class="btn primary" hidden>Restart &amp; Update</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Right column: live preview -->
+    <aside class="preview-pane">
+      <div class="preview-header">
+        <span class="preview-title">Live Preview</span>
+        <div id="connStatus" class="status disconnected">
+          <span class="dot"></span>
+          <span class="status-text">Disconnected</span>
+        </div>
+      </div>
+      <div class="preview-surface">
+        <iframe id="preview" title="Overlay preview"></iframe>
+      </div>
+      <div class="preview-note">
+        This is the live overlay. It updates as you change settings and reacts to
+        your real key and mouse input. Nothing shown here is recorded.
+      </div>
+    </aside>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="config-ui.js"></script>
+</body>
+</html>

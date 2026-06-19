@@ -1,0 +1,54 @@
+{
+  "name": "keycast",
+  "version": "1.0.0",
+  "description": "A real-time keyboard and mouse input overlay for streamers, built with Electron. Zero data storage.",
+  "license": "GPL-3.0-or-later",
+  "author": "KeyCast contributors",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "generate-icon": "node build/generate-icon.js",
+    "dist": "electron-builder --win",
+    "release": "electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3",
+    "uiohook-napi": "^1.5.4",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.keycast.app",
+    "productName": "KeyCast",
+    "files": [
+      "src/**/*",
+      "overlay/**/*",
+      "config-ui/**/*",
+      "scripts/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "scripts/**"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "yzRobo",
+        "repo": "KeyCast"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    }
+  }
+}

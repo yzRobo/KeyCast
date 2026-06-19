@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KeyCast Overlay</title>
+
+  <!-- Overlay font: DM Mono, with a plain monospace fallback. Loaded from
+       Google Fonts. This is the only outbound request the overlay page makes,
+       and it is a font request only. No input data leaves the machine. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="overlay.css" />
+</head>
+<body>
+  <!-- The overlay container. Layout and theme are applied at runtime from the
+       active profile received over the WebSocket. -->
+  <div id="overlay" class="overlay">
+    <div id="keyboard" class="keyboard"></div>
+    <div id="mouse" class="mouse" hidden></div>
+    <div id="kps" class="kps" hidden></div>
+  </div>
+
+  <script src="overlay.js"></script>
+</body>
+</html>

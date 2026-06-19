@@ -1,0 +1,777 @@
+/* config-ui.css
+ *
+ * Styling for the KeyCast configuration window. The direction is refined
+ * minimalism in the spirit of tools like Linear or the Vercel dashboard:
+ * deep neutral dark background, small tracked uppercase section dividers, flat
+ * bordered controls, subtle hover and focus states. No gradients, no heavy
+ * shadows, no gamer styling. */
+
+:root {
+  --bg: #0a0a0a;
+  --panel: #111111;
+  --panel-raised: #161616;
+  --border: #232323;
+  --border-strong: #303030;
+  --text: #ededed;
+  --text-muted: #8a8a8a;
+  --text-faint: #5c5c5c;
+  --accent: #ffffff;
+  --danger: #d65a5a;
+  --radius: 8px;
+  --row-gap: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  /* Config UI font: Geist, falling back to the system UI font. */
+  font-family: "Geist", system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Two column layout: scrollable settings on the left, sticky live preview on
+ * the right. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  height: 100vh;
+}
+
+.settings {
+  overflow-y: auto;
+  padding: 28px 32px 64px;
+}
+
+.preview-pane {
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.app-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.app-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.app-subtitle {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+/* Section dividers: small, uppercase, tracked, muted. Used as dividers, not
+ * loud titles. */
+.section {
+  margin-bottom: 32px;
+}
+
+.section-header {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Generic row: label on the left, control on the right. */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: var(--row-gap) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row-label {
+  color: var(--text);
+}
+
+.row-sublabel {
+  display: block;
+  color: var(--text-faint);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* Toggle switch */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle .track {
+  position: absolute;
+  inset: 0;
+  background: var(--panel-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.toggle .thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform 140ms ease, background-color 140ms ease;
+}
+
+.toggle input:checked + .track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.toggle input:checked + .track + .thumb {
+  transform: translateX(16px);
+  background: #0a0a0a;
+}
+
+.toggle input:focus-visible + .track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Buttons: flat with a subtle border. No gradients, no heavy shadow. */
+.btn {
+  appearance: none;
+  background: var(--panel-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.btn:hover {
+  background: #1c1c1c;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.icon {
+  padding: 8px 11px;
+  line-height: 1;
+}
+
+.btn.danger {
+  color: var(--danger);
+  border-color: #3a2626;
+}
+
+.btn.danger:hover {
+  background: #1f1414;
+}
+
+/* Filled button for the primary action (used by Restart & Update). */
+.btn.primary {
+  background: var(--accent);
+  color: #0a0a0a;
+  border-color: var(--accent);
+  font-weight: 500;
+}
+
+.btn.primary:hover {
+  background: #e6e6e6;
+}
+
+/* Update banner: sticky at the top of the settings column so a downloaded
+ * update is visible without scrolling to the Updates section. The [hidden]
+ * rule is required because the display:flex below would otherwise override the
+ * UA hidden-attribute style and leave an empty bar on screen. */
+.update-banner[hidden] {
+  display: none;
+}
+
+.update-banner {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* Negative margins bleed the banner to the settings column edges (cancelling
+   * its 28px/32px padding); the bottom margin spaces it from the header. */
+  margin: -28px -32px 24px;
+  padding: 14px 32px;
+  background: #14110a;
+  border-bottom: 1px solid var(--accent);
+}
+
+.update-banner-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.update-banner-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Update section: version label in the header and the action buttons. */
+.app-version {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.update-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Inputs and selects */
+.text-input,
+.select,
+.number-input {
+  appearance: none;
+  background: var(--panel-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.text-input:focus,
+.select:focus,
+.number-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.select {
+  min-width: 150px;
+  cursor: pointer;
+}
+
+.number-input {
+  width: 90px;
+}
+
+/* Profile selector row */
+.profile-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.profile-bar .select {
+  flex: 1;
+}
+
+/* Color picker: inline swatch that opens the native picker on click, with a
+ * hex readout beside it. */
+.color-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.color-swatch {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  overflow: hidden;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* The native color input fills the swatch but is visually hidden behind it. */
+.color-swatch input[type="color"] {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  border: none;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.color-hex {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  min-width: 64px;
+}
+
+/* Sliders */
+.slider-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 220px;
+}
+
+input[type="range"] {
+  appearance: none;
+  width: 160px;
+  height: 4px;
+  background: var(--border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.slider-value {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  min-width: 42px;
+  text-align: right;
+}
+
+/* Visual layout editor: drag to move keys, drag the right edge to resize. */
+.editor-hint {
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.layout-editor {
+  position: relative;
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--panel);
+  /* Faint grid so the snap cells are visible. */
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: var(--pitch, 52px) var(--pitch, 52px);
+  background-position: var(--pad, 10px) var(--pad, 10px);
+  overflow: auto;
+  max-width: 100%;
+  /* Prevent touch scrolling from fighting a drag. */
+  touch-action: none;
+}
+
+.le-key {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.le-key:hover {
+  background: #1c1c1c;
+}
+
+.le-key.selected {
+  border-color: var(--accent);
+}
+
+.le-key.dragging {
+  cursor: grabbing;
+  border-color: var(--accent);
+  z-index: 5;
+  opacity: 0.95;
+}
+
+.le-key.resizing {
+  border-color: var(--accent);
+  z-index: 5;
+}
+
+.le-key-label {
+  pointer-events: none;
+  padding: 0 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.le-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 100%;
+  cursor: ew-resize;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.06));
+}
+
+.le-handle:hover {
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.16));
+}
+
+.layout-editor.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Rubber-band selection rectangle drawn while dragging on empty editor space. */
+.le-marquee {
+  position: absolute;
+  border: 1px solid var(--accent);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Key layout editor */
+.key-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.key-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1.2fr 48px 48px 48px 52px 34px;
+  gap: 8px;
+  align-items: center;
+}
+
+.key-row .mini-input {
+  background: var(--panel-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  width: 100%;
+}
+
+.key-row .mini-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.key-row-head {
+  display: grid;
+  grid-template-columns: 1.4fr 1.2fr 48px 48px 48px 52px 34px;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+
+.key-remove {
+  background: none;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  border-radius: 6px;
+  height: 30px;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.key-remove:hover {
+  background: #1f1414;
+  color: var(--danger);
+}
+
+/* Mouse button grid */
+.mouse-grid {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Superglide preset fields */
+.sg-key {
+  width: 140px;
+  text-transform: lowercase;
+}
+
+.sg-tip {
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+  padding-top: 14px;
+}
+
+/* OBS section helper note */
+.obs-tip {
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+/* URL display */
+.url-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--row-gap) 0;
+}
+
+.url-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.url-line .url-label {
+  color: var(--text-faint);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  min-width: 86px;
+}
+
+.url-value {
+  flex: 1;
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-family: ui-monospace, "DM Mono", monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Preview pane internals */
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.preview-title {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* Connection status indicator */
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  transition: background-color 160ms ease;
+}
+
+.status.connected .dot {
+  background: #56b36a;
+}
+
+.status.idle .dot {
+  background: #b7913f;
+}
+
+.status.disconnected .dot {
+  background: #b35656;
+}
+
+/* The preview surface mimics an OBS canvas: a neutral mid backdrop so both
+ * light and dark key themes are clearly visible. */
+.preview-surface {
+  flex: 1;
+  position: relative;
+  background-color: #1a1a1a;
+  background-image:
+    linear-gradient(45deg, #161616 25%, transparent 25%),
+    linear-gradient(-45deg, #161616 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #161616 75%),
+    linear-gradient(-45deg, transparent 75%, #161616 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+  overflow: hidden;
+}
+
+.preview-surface iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+}
+
+.preview-note {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  color: var(--text-faint);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Small helper for inline groups of label and control */
+.inline-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Toast for copy confirmation */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--panel-raised);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Modal: used for naming a profile and for delete confirmation. Electron does
+ * not provide window.prompt, so the app supplies its own minimal dialog that
+ * matches the rest of the design. */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+  z-index: 50;
+}
+
+.modal-backdrop.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal {
+  width: 340px;
+  background: var(--panel-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.modal-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.modal .text-input {
+  width: 100%;
+  margin-bottom: 18px;
+}
+
+.modal-message {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

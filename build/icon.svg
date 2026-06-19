@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- KeyCast program icon: a single W keycap rendered in the minimal-dark theme.
+     Clean rounded rectangle, tight border, no glow, no gamer styling. -->
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded square backing so the keycap reads clearly at small sizes. -->
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="#0a0a0a"/>
+
+  <!-- Keycap body. Slightly raised top surface for a subtle keycap feel. -->
+  <rect x="48" y="44" width="160" height="168" rx="28" fill="#161616" stroke="#2e2e2e" stroke-width="4"/>
+  <rect x="62" y="58" width="132" height="124" rx="20" fill="#1c1c1c" stroke="#2e2e2e" stroke-width="3"/>
+
+  <!-- The W glyph, centered, uppercase, in the idle text color. -->
+  <text x="128" y="148"
+        font-family="'DM Mono', 'Consolas', monospace"
+        font-size="96"
+        font-weight="500"
+        text-anchor="middle"
+        fill="#ededed"
+        letter-spacing="2">W</text>
+</svg>
