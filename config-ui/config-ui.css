@@ -482,6 +482,42 @@ input[type="range"]:focus-visible {
   background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.16));
 }
 
+/* The mouse schematic as a draggable block in the layout editor. Rounded top to
+ * echo the overlay mouse shape, dashed so it reads as distinct from key caps. */
+.le-mouse {
+  position: absolute;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8px;
+  background: var(--panel-raised);
+  border: 1px dashed var(--border-strong);
+  border-radius: 42% 42% 28% 28% / 32% 32% 18% 18%;
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: grab;
+  user-select: none;
+  z-index: 2;
+  transition: border-color 120ms ease;
+}
+
+.le-mouse:hover {
+  border-color: var(--accent);
+}
+
+.le-mouse.dragging {
+  cursor: grabbing;
+  border-color: var(--accent);
+  z-index: 6;
+  opacity: 0.95;
+}
+
+.le-mouse-label {
+  pointer-events: none;
+}
+
 .layout-editor.disabled {
   opacity: 0.45;
   pointer-events: none;

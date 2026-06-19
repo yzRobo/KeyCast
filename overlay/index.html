@@ -18,8 +18,13 @@
   <!-- The overlay container. Layout and theme are applied at runtime from the
        active profile received over the WebSocket. -->
   <div id="overlay" class="overlay">
-    <div id="keyboard" class="keyboard"></div>
-    <div id="mouse" class="mouse" hidden></div>
+    <!-- The stage is the shared coordinate space for the keyboard and the mouse.
+         The keyboard sits in normal flow and sizes the stage; the mouse is
+         positioned absolutely within it by its configured grid x/y. -->
+    <div id="stage" class="stage">
+      <div id="keyboard" class="keyboard"></div>
+      <div id="mouse" class="mouse" hidden></div>
+    </div>
     <div id="kps" class="kps" hidden></div>
   </div>
 

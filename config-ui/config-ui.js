@@ -61,6 +61,10 @@
   const LE_GAP = 6;
   const LE_PAD = 10;
   const LE_PITCH = LE_CELL + LE_GAP;
+  // Mouse footprint in editor cells, matching the overlay mouse proportions
+  // (1.6 key-widths wide, 2.4 tall) so the editor preview reflects its real size.
+  const LE_MOUSE_W = 1.6;
+  const LE_MOUSE_H = 2.4;
 
   // --- element references ---
   const el = (id) => document.getElementById(id);
@@ -219,8 +223,11 @@
     leBoxes = [];
     const kb = activeProfile().keyboard;
     const keys = kb.keys;
+    const mouse = activeProfile().mouse;
 
-    editor.classList.toggle('disabled', !kb.enabled);
+    // The editor is usable when either the keyboard or the mouse is on, so the
+    // mouse can still be positioned with the keyboard hidden.
+    editor.classList.toggle('disabled', !(kb.enabled || mouse.enabled));
 
     // Drop any selected indices that no longer exist.
     selectedKeyIndices.forEach((i) => {
@@ -249,6 +256,10 @@
       maxCol = Math.max(maxCol, entry.x + keySpan(entry));
       maxRow = Math.max(maxRow, entry.y + 1);
     });
+    if (mouse.enabled) {
+      maxCol = Math.max(maxCol, Math.ceil(mouse.x + LE_MOUSE_W));
+      maxRow = Math.max(maxRow, Math.ceil(mouse.y + LE_MOUSE_H));
+    }
     maxCol += 1;
     maxRow += 1;
 
@@ -309,6 +320,63 @@
       editor.appendChild(box);
       leBoxes[index] = box;
     });
+
+    // The mouse schematic is draggable in the same space as the keys. It is not
+    // part of the keys array, so it is rendered and dragged on its own and may
+    // overlap keys by design.
+    if (mouse.enabled) {
+      const mbox = document.createElement('div');
+      mbox.className = 'le-mouse';
+      mbox.title = 'Drag to move the mouse overlay';
+      mbox.style.left = (LE_PAD + mouse.x * LE_PITCH) + 'px';
+      mbox.style.top = (LE_PAD + mouse.y * LE_PITCH) + 'px';
+      mbox.style.width = (LE_MOUSE_W * LE_CELL) + 'px';
+      mbox.style.height = (LE_MOUSE_H * LE_CELL) + 'px';
+
+      const mlabel = document.createElement('span');
+      mlabel.className = 'le-mouse-label';
+      mlabel.textContent = 'MOUSE';
+      mbox.appendChild(mlabel);
+
+      mbox.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        // Keep the editor background (rubber-band) handler from firing.
+        e.stopPropagation();
+        startMouseMove(e, mbox);
+      });
+
+      editor.appendChild(mbox);
+    }
+  }
+
+  // Move the mouse schematic. It is independent of the keys, so it has its own
+  // whole-cell drag that updates the mouse x/y. It does not run collision
+  // resolution; the mouse is free to sit anywhere, including over keys.
+  function startMouseMove(e, box) {
+    const mouse = activeProfile().mouse;
+    const startPX = e.clientX;
+    const startPY = e.clientY;
+    const x0 = mouse.x;
+    const y0 = mouse.y;
+    box.classList.add('dragging');
+
+    const move = (ev) => {
+      const dx = Math.round((ev.clientX - startPX) / LE_PITCH);
+      const dy = Math.round((ev.clientY - startPY) / LE_PITCH);
+      mouse.x = Math.max(0, x0 + dx);
+      mouse.y = Math.max(0, y0 + dy);
+      box.style.left = (LE_PAD + mouse.x * LE_PITCH) + 'px';
+      box.style.top = (LE_PAD + mouse.y * LE_PITCH) + 'px';
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      renderLayoutEditor();
+      populateMousePosition();
+      scheduleSave();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
   }
 
   // Move one or more keys. If the pressed key is not already part of the
@@ -628,6 +696,17 @@
     return Math.min(max, Math.max(min, n));
   }
 
+  // Reflect the mouse grid position into its numeric inputs.
+  function populateMousePosition() {
+    const m = activeProfile().mouse;
+    if (el('mouseX')) {
+      el('mouseX').value = m.x;
+    }
+    if (el('mouseY')) {
+      el('mouseY').value = m.y;
+    }
+  }
+
   // --- populate all controls from the active profile ---
   function populate() {
     const p = activeProfile();
@@ -639,6 +718,7 @@
     renderSuperglide();
 
     el('mouseEnabled').checked = p.mouse.enabled;
+    populateMousePosition();
     el('mouseLmbShow').checked = p.mouse.buttons.lmb.show;
     el('mouseLmbCounter').checked = p.mouse.buttons.lmb.counter;
     el('mouseRmbShow').checked = p.mouse.buttons.rmb.show;
@@ -737,7 +817,23 @@
       }
     });
 
-    bindMouseToggle('mouseEnabled', (p, v) => { p.mouse.enabled = v; });
+    // Toggling the mouse also re-renders the editor so its draggable box appears
+    // or disappears.
+    el('mouseEnabled').addEventListener('change', (e) => {
+      activeProfile().mouse.enabled = e.target.checked;
+      renderLayoutEditor();
+      scheduleSave();
+    });
+    el('mouseX').addEventListener('input', () => {
+      activeProfile().mouse.x = clampInt(el('mouseX').value, 0, 64, 0);
+      renderLayoutEditor();
+      scheduleSave();
+    });
+    el('mouseY').addEventListener('input', () => {
+      activeProfile().mouse.y = clampInt(el('mouseY').value, 0, 64, 0);
+      renderLayoutEditor();
+      scheduleSave();
+    });
     bindMouseToggle('mouseLmbShow', (p, v) => { p.mouse.buttons.lmb.show = v; });
     bindMouseToggle('mouseLmbCounter', (p, v) => { p.mouse.buttons.lmb.counter = v; });
     bindMouseToggle('mouseRmbShow', (p, v) => { p.mouse.buttons.rmb.show = v; });
@@ -791,6 +887,14 @@
 
     el('copyLocalhost').addEventListener('click', () => copyText(el('urlLocalhost').textContent));
     el('copyLan').addEventListener('click', () => copyText(el('urlLan').textContent));
+
+    // Choosing a network adapter saves the address and refreshes the LAN URL.
+    // An empty value (no adapters) clears the choice back to auto-pick.
+    el('lanAdapter').addEventListener('change', async () => {
+      config.server.lanAddress = el('lanAdapter').value || null;
+      await api.saveConfig(config);
+      await loadUrls();
+    });
 
     el('fixFirewall').addEventListener('click', async () => {
       if (!api.fixFirewall) {
@@ -946,6 +1050,40 @@
     const urls = await api.getUrls();
     el('urlLocalhost').textContent = urls.localhost;
     el('urlLan').textContent = urls.lan;
+    populateLanAdapters(urls);
+  }
+
+  // Fill the network adapter dropdown from the detected addresses and select the
+  // active one. A machine with VPNs or virtual adapters (Tailscale, WSL,
+  // VirtualBox) shows several entries here, so the user can pick the one the
+  // streaming PC can actually reach.
+  function populateLanAdapters(urls) {
+    const select = el('lanAdapter');
+    if (!select) {
+      return;
+    }
+    select.innerHTML = '';
+
+    const addresses = urls.addresses || [];
+    if (addresses.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No network adapters detected';
+      select.appendChild(opt);
+      select.disabled = true;
+      return;
+    }
+
+    select.disabled = false;
+    for (const item of addresses) {
+      const opt = document.createElement('option');
+      opt.value = item.address;
+      opt.textContent = item.name + ' - ' + item.address;
+      select.appendChild(opt);
+    }
+    if (urls.selectedAddress) {
+      select.value = urls.selectedAddress;
+    }
   }
 
   async function copyText(text) {

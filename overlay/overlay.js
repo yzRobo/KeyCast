@@ -24,6 +24,7 @@
   const SCROLL_FLASH_MS = 150;
 
   const overlayEl = document.getElementById('overlay');
+  const stageEl = document.getElementById('stage');
   const keyboardEl = document.getElementById('keyboard');
   const mouseEl = document.getElementById('mouse');
   const kpsEl = document.getElementById('kps');
@@ -146,6 +147,10 @@
     }
     mouseEl.hidden = false;
 
+    // Position the mouse within the stage from its grid coordinates.
+    mouseEl.style.setProperty('--mouse-x', String(mouse.x));
+    mouseEl.style.setProperty('--mouse-y', String(mouse.y));
+
     const body = document.createElement('div');
     body.className = 'mouse-body';
 
@@ -194,6 +199,12 @@
       const wrap = document.createElement('div');
       wrap.className = 'mouse-counters';
       for (const name of enabledCounters) {
+        // Preserve the running count across re-renders. A config change rebuilds
+        // this DOM, but the in-memory count carries over, so seed the display
+        // from it rather than resetting the visible number to zero.
+        if (clickCounts[name] === undefined) {
+          clickCounts[name] = 0;
+        }
         const row = document.createElement('div');
         row.className = 'mouse-counter';
         const label = document.createElement('span');
@@ -201,14 +212,11 @@
         label.textContent = name.toUpperCase();
         const value = document.createElement('span');
         value.className = 'value';
-        value.textContent = '0';
+        value.textContent = String(clickCounts[name]);
         row.appendChild(label);
         row.appendChild(value);
         wrap.appendChild(row);
         counterElements[name] = value;
-        if (clickCounts[name] === undefined) {
-          clickCounts[name] = 0;
-        }
       }
       mouseEl.appendChild(wrap);
     }
@@ -219,9 +227,37 @@
     if (counters.kps) {
       kpsEl.hidden = false;
       kpsEl.innerHTML = '<span class="value">0</span> <span>KPS</span>';
+      // Repopulate immediately from the rolling window so a re-render does not
+      // flash a stale zero before the next 100ms tick.
+      updateKps();
     } else {
       kpsEl.hidden = true;
     }
+  }
+
+  // Size the stage to enclose both the keyboard and the mouse. The mouse is
+  // absolutely positioned, so it does not stretch the stage on its own; without
+  // this the stage stops at the keyboard's bounds and a mouse placed beyond them
+  // (the default below-the-keys position, for example) falls outside the render
+  // area. Measuring the laid-out elements covers their real size, including the
+  // mouse counters and side buttons. KPS, which flows after the stage, then sits
+  // below whichever element reaches lowest.
+  function sizeStage() {
+    // Clear any previous explicit size so the keyboard reports its natural size.
+    stageEl.style.width = '';
+    stageEl.style.height = '';
+
+    let width = keyboardEl.offsetWidth;
+    let height = keyboardEl.offsetHeight;
+
+    if (!mouseEl.hidden) {
+      // offsetParent is the stage (position: relative), so these are stage-local.
+      width = Math.max(width, mouseEl.offsetLeft + mouseEl.offsetWidth);
+      height = Math.max(height, mouseEl.offsetTop + mouseEl.offsetHeight);
+    }
+
+    stageEl.style.width = width + 'px';
+    stageEl.style.height = height + 'px';
   }
 
   // Render the entire active profile.
@@ -231,6 +267,9 @@
     renderKeyboard(p.keyboard);
     renderMouse(p.mouse);
     renderKps(p.counters);
+    // Run after the keyboard and mouse exist and the theme sizes are applied, so
+    // the measurements reflect the final layout.
+    sizeStage();
   }
 
   // Key press handling. Ignores OS auto-repeat by checking existing state.

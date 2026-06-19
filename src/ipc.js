@@ -15,19 +15,30 @@ const { spawn } = require('child_process');
 const { ipcMain } = require('electron');
 const config = require('./config');
 
-// Find the machine's primary local IPv4 address (the LAN address a second PC
-// would use). Returns null if only loopback is available. This reads the local
-// network interface list only; it makes no network connection.
-function getLocalIpAddress() {
+// List every non-internal IPv4 address with the name of the adapter it belongs
+// to. A machine often has several (Ethernet, Wi-Fi, plus VPN and virtual
+// adapters like Tailscale, WSL, or VirtualBox), and the right one for a 2PC
+// setup is the adapter the streaming PC can actually reach. The user picks from
+// this list. This reads the local network interface list only; it makes no
+// network connection.
+function listLocalIpAddresses() {
   const interfaces = os.networkInterfaces();
+  const results = [];
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name]) {
       if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
+        results.push({ name, address: iface.address });
       }
     }
   }
-  return null;
+  return results;
+}
+
+// The machine's first detected local IPv4 address, or null if only loopback is
+// available. Used as the fallback when the user has not chosen an adapter.
+function getLocalIpAddress() {
+  const list = listLocalIpAddresses();
+  return list.length > 0 ? list[0].address : null;
 }
 
 // Register all handlers. deps provides the live application state:
@@ -57,14 +68,34 @@ function register(deps) {
     return validated;
   });
 
-  // Return the OBS Browser Source URLs for single PC and 2PC use.
+  // Return the OBS Browser Source URLs for single PC and 2PC use, plus the full
+  // list of detected network adapters so the UI can let the user pick the right
+  // one for 2PC. The LAN URL uses the user's saved adapter when it is still
+  // present; otherwise it falls back to the first detected address. Availability
+  // is re-checked every call because IPs change (DHCP, adapters toggling on/off).
   ipcMain.handle('server:urls', () => {
-    const port = deps.getConfig().server.port;
-    const lanIp = getLocalIpAddress();
+    const cfg = deps.getConfig();
+    const port = cfg.server.port;
+    const addresses = listLocalIpAddresses();
+
+    const saved = cfg.server.lanAddress;
+    let selected = null;
+    if (saved && addresses.some((a) => a.address === saved)) {
+      selected = saved;
+    } else if (addresses.length > 0) {
+      selected = addresses[0].address;
+    }
+
     return {
       port,
       localhost: 'http://localhost:' + port,
-      lan: lanIp ? 'http://' + lanIp + ':' + port : 'No local network address detected'
+      lan: selected ? 'http://' + selected + ':' + port : 'No local network address detected',
+      selectedAddress: selected,
+      addresses: addresses.map((a) => ({
+        name: a.name,
+        address: a.address,
+        url: 'http://' + a.address + ':' + port
+      }))
     };
   });
 

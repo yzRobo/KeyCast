@@ -87,6 +87,12 @@ gaming PC's local IP in the settings window, labeled "2PC / LAN". Use that as th
 OBS URL on the streaming PC, for example `http://192.168.1.42:8765`. If it does
 not connect, see [Troubleshooting](#troubleshooting).
 
+If your gaming PC has more than one network adapter (a VPN, or a virtual adapter
+from WSL or a VM), the auto-detected address may be the wrong one. Use the
+**Network adapter** dropdown in the OBS Browser Source section to pick the
+adapter your streaming PC is on; the 2PC / LAN URL updates to match, and your
+choice is remembered.
+
 **Different networks:** Install [Tailscale](https://tailscale.com/) on both PCs
 and use the gaming PC's Tailscale IP as the OBS URL instead. Nothing else to set
 up.
@@ -115,7 +121,9 @@ Everything is set in the KeyCast window. No file editing needed.
   7 ms at 144 FPS), so tune it to your setup. Drag the SUPERGLIDE cap on the grid
   to position it.
 - **Mouse:** turn the mouse on or off, pick which buttons show, toggle the scroll
-  flash and per-button click counters.
+  flash and per-button click counters. Position it anywhere by dragging the
+  MOUSE box in the layout editor, or set its grid column and row in the Mouse
+  section.
 - **Theme:** choose a preset, then change any color, the animation, and the size,
   gap, and scale.
 - **Counters:** turn the keys-per-second display on or off.

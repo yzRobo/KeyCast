@@ -52,6 +52,13 @@ body {
   transform-origin: top left;
 }
 
+/* Shared coordinate space for the keyboard and the mouse. The keyboard sits in
+ * normal flow and gives the stage its size; the mouse is positioned absolutely
+ * within it, so the two share the same top-left grid origin. */
+.stage {
+  position: relative;
+}
+
 /* Keyboard grid. Each key is placed by its configured x/y, with optional span. */
 .keyboard {
   display: grid;
@@ -131,8 +138,13 @@ body {
   box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.15);
 }
 
-/* Mouse schematic. Sits below the keyboard cluster as a clean shape. */
+/* Mouse schematic. Positioned freely within the stage by its grid x/y, using
+ * the same cell pitch as keys (key size plus gap) so it lines up with the
+ * keyboard grid and scales with the theme. */
 .mouse {
+  position: absolute;
+  left: calc(var(--mouse-x, 0) * (var(--key-size) + var(--key-gap)));
+  top: calc(var(--mouse-y, 4) * (var(--key-size) + var(--key-gap)));
   display: flex;
   align-items: flex-start;
   gap: var(--key-gap);

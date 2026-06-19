@@ -144,6 +144,21 @@
         </div>
 
         <div class="row">
+          <span class="row-label">Position
+            <span class="row-sublabel">
+              Drag the MOUSE box in the layout editor above to place it, or set
+              the grid column (X) and row (Y) here.
+            </span>
+          </span>
+          <div class="inline-label">
+            <input type="number" id="mouseX" class="number-input" min="0" max="64"
+                   title="Column (X) on the grid" />
+            <input type="number" id="mouseY" class="number-input" min="0" max="64"
+                   title="Row (Y) on the grid" />
+          </div>
+        </div>
+
+        <div class="row">
           <span class="row-label">Left button (LMB)
             <span class="row-sublabel">Show on overlay and click counter</span>
           </span>
@@ -306,6 +321,16 @@
             <span class="url-label">2PC / LAN</span>
             <span id="urlLan" class="url-value"></span>
             <button id="copyLan" class="btn">Copy</button>
+          </div>
+          <div class="url-line">
+            <span class="url-label">Network adapter</span>
+            <select id="lanAdapter" class="select"
+                    title="Pick the adapter the streaming PC can reach. Most home setups use Wi-Fi or Ethernet. VPN and virtual adapters (Tailscale, WSL, VirtualBox) also appear here."></select>
+          </div>
+          <div class="obs-tip">
+            Seeing the wrong 2PC address? If your PC has more than one network
+            adapter (a VPN, or a virtual adapter from WSL or a VM), pick the one
+            your streaming PC is on. The 2PC / LAN URL above updates to match.
           </div>
         </div>
       </section>

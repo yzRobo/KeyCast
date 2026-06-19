@@ -52,7 +52,10 @@ const VALID_PRESETS = Object.keys(THEME_PRESETS);
 function getDefaultConfig() {
   return {
     server: {
-      port: 8765
+      port: 8765,
+      // The LAN IP the user picked for the 2PC / OBS URL, or null to auto-pick
+      // the first detected adapter. Stored so the choice survives restarts.
+      lanAddress: null
     },
     profiles: {
       active: 'default',
@@ -72,6 +75,11 @@ function getDefaultConfig() {
           },
           mouse: {
             enabled: false,
+            // Grid position of the mouse schematic, in the same cell units as
+            // keys. Defaults below the default keyboard rows so it lands where it
+            // used to sit; the user can drag it anywhere from here.
+            x: 0,
+            y: 4,
             buttons: {
               lmb: { show: true, counter: false },
               rmb: { show: true, counter: false },
@@ -117,6 +125,12 @@ function clampNumber(value, min, max, fallback) {
 
 function isHexColor(value) {
   return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
+// Loose IPv4 check, used only to keep a garbage lanAddress out of the saved
+// config. The value is for display in the OBS URL; it is never dialed by the app.
+function isIpv4(value) {
+  return typeof value === 'string' && /^(\d{1,3})(\.\d{1,3}){3}$/.test(value);
 }
 
 function pickColor(value, fallback) {
@@ -195,6 +209,8 @@ function validateProfile(profile, fallbackName) {
     },
     mouse: {
       enabled: mouseSafe.enabled === true,
+      x: clampNumber(mouseSafe.x, 0, 64, defaults.mouse.x),
+      y: clampNumber(mouseSafe.y, 0, 64, defaults.mouse.y),
       buttons: {
         lmb: validateMouseButton(buttonsSafe.lmb),
         rmb: validateMouseButton(buttonsSafe.rmb),
@@ -232,6 +248,7 @@ function validateConfig(input) {
 
   const serverSafe = safe.server && typeof safe.server === 'object' ? safe.server : {};
   const port = clampNumber(serverSafe.port, 1, 65535, 8765);
+  const lanAddress = isIpv4(serverSafe.lanAddress) ? serverSafe.lanAddress : null;
 
   const profilesSafe = safe.profiles && typeof safe.profiles === 'object' ? safe.profiles : {};
   const listSafe = profilesSafe.list && typeof profilesSafe.list === 'object' ? profilesSafe.list : {};
@@ -255,7 +272,7 @@ function validateConfig(input) {
   }
 
   return {
-    server: { port },
+    server: { port, lanAddress },
     profiles: {
       active,
       list: validatedList
