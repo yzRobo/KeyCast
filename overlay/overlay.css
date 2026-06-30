@@ -197,14 +197,21 @@ body {
   transition: background-color 140ms ease;
 }
 
-.mouse-wheel.active {
-  background: var(--key-pressed);
+/* Scroll lights only the half of the wheel in the scrolled direction: the top
+ * half on scroll up, the bottom half on scroll down. The other half keeps the
+ * idle color so the wheel shape stays intact. */
+.mouse-wheel.scroll-up {
+  background: linear-gradient(to bottom, var(--key-held) 0 50%, var(--key-idle) 50% 100%);
 }
 
-/* Brief flash for scroll direction. */
-.mouse-wheel.scroll-up,
 .mouse-wheel.scroll-down {
-  background: var(--key-held);
+  background: linear-gradient(to bottom, var(--key-idle) 0 50%, var(--key-held) 50% 100%);
+}
+
+/* Middle-button (MMB) click lights the whole wheel. Declared after the scroll
+ * rules so a click always shows the full highlight, even during a scroll flash. */
+.mouse-wheel.active {
+  background: var(--key-pressed);
 }
 
 /* Side buttons M4 and M5 on the left flank. */
