@@ -111,10 +111,12 @@ function start(onEvent) {
   });
 
   uIOhook.on('wheel', (e) => {
-    // Positive rotation is treated as scroll up, negative as scroll down. Only
-    // the direction is used to drive a brief flash. The event is broadcast
-    // immediately and then discarded. No scroll data is stored or logged.
-    const direction = e.rotation > 0 ? 'up' : 'down';
+    // uiohook reports a positive rotation for a scroll DOWN and a negative
+    // rotation for a scroll UP on Windows (verified against real hardware), so
+    // map it accordingly. Only the direction is used to drive a brief flash. The
+    // event is broadcast immediately and then discarded. No scroll data is
+    // stored or logged.
+    const direction = e.rotation > 0 ? 'down' : 'up';
     onEvent({ type: 'wheel', direction });
   });
 
