@@ -7,9 +7,11 @@
 // into visual state. It does not send anything back, does not write to storage
 // (no localStorage, no cookies, no fetch to any server), and does not keep an
 // event history. The only retained values are the live visual state of each
-// key, the in-memory counters, and a short rolling window of recent keypress
-// timestamps used purely to compute keys-per-second. All of this is ephemeral
-// and resets when the page reloads.
+// key, the in-memory counters, a short rolling window of recent keypress
+// timestamps used purely to compute keys-per-second, and the movement
+// indicator's current deflection and trail, which are visual positions derived
+// from relative deltas (no cursor coordinates ever arrive here). All of this is
+// ephemeral and resets when the page reloads.
 
 (function () {
   'use strict';
@@ -50,6 +52,21 @@
   // Mouse element references by button name and the scroll wheel element.
   let mouseElements = {};
   let mouseWheelEl = null;
+  // Movement indicator state. movementConfig holds the active profile's
+  // settings, the elements are the pad and its marks, and the vectors are the
+  // current and target deflection in unit coordinates (-1..1 on each axis).
+  // These are live visual state, not an input history: each incoming delta
+  // overwrites the target and is then gone.
+  let movementConfig = null;
+  let movementEls = null;
+  let moveTargetX = 0;
+  let moveTargetY = 0;
+  let moveCurX = 0;
+  let moveCurY = 0;
+  let lastMoveAt = 0;
+  // Recent marker positions for the trail style. A fixed-length ring of screen
+  // offsets inside the pad, not cursor positions and not input data.
+  let moveTrail = [];
   // In-memory click counters. Reset on every page load. Never persisted.
   let clickCounts = {};
   let counterElements = {};
@@ -140,6 +157,8 @@
     mouseElements = {};
     mouseWheelEl = null;
     counterElements = {};
+    movementEls = null;
+    movementConfig = null;
 
     if (!mouse.enabled) {
       mouseEl.hidden = true;
@@ -191,6 +210,8 @@
     }
 
     mouseEl.appendChild(body);
+
+    renderMovement(mouse.movement, body);
 
     // Build click counters for any button that has its counter enabled.
     const counterNames = ['lmb', 'rmb', 'mmb', 'm4', 'm5'];
@@ -360,6 +381,192 @@
     }, SCROLL_FLASH_MS);
   }
 
+  // --- mouse movement indicator ---
+  //
+  // The app sends relative deltas, never cursor positions. Each delta is turned
+  // into a target deflection, the drawn marker eases toward that target, and the
+  // target falls back to centre once deltas stop arriving. Nothing accumulates:
+  // a new delta replaces the target rather than adding to a history.
+
+  // How long after the last delta the indicator starts returning to centre.
+  const MOVE_IDLE_MS = 60;
+  // Per-frame easing toward the target. Higher is snappier, lower is smoother.
+  const MOVE_SMOOTHING = 0.3;
+  // Below this deflection the indicator is treated as at rest.
+  const MOVE_DEADZONE = 0.02;
+  // Number of marks in the trail style.
+  const TRAIL_LENGTH = 10;
+
+  let moveRaf = null;
+
+  // Build the movement pad for the active style, drawn on the palm area of the
+  // mouse body (the space below the buttons and wheel), so the indicator reads
+  // as part of the mouse rather than a separate gauge. Returns without creating
+  // anything when the indicator is turned off, so it costs nothing when unused.
+  function renderMovement(movement, body) {
+    const cfg = movement && typeof movement === 'object' ? movement : null;
+    stopMovementLoop();
+
+    if (!cfg || !cfg.show) {
+      return;
+    }
+
+    movementConfig = cfg;
+    const style = cfg.style === 'arrow' || cfg.style === 'trail' ? cfg.style : 'dot';
+
+    const pad = document.createElement('div');
+    pad.className = 'move-pad style-' + style;
+
+    const els = { style, pad, dot: null, arrow: null, marks: [] };
+
+    if (style === 'arrow') {
+      // Drawn in an SVG whose viewBox is centred on the origin, so the rotate
+      // and scale below pivot on the pad centre with no extra bookkeeping.
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '-50 -50 100 100');
+      svg.setAttribute('class', 'move-arrow');
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      const shaft = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      shaft.setAttribute('x1', '0');
+      shaft.setAttribute('y1', '0');
+      shaft.setAttribute('x2', '30');
+      shaft.setAttribute('y2', '0');
+      const head = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      head.setAttribute('points', '30,-9 44,0 30,9');
+      group.appendChild(shaft);
+      group.appendChild(head);
+      svg.appendChild(group);
+      pad.appendChild(svg);
+      els.arrow = group;
+      // Visibility is driven on the svg element, because that is where the
+      // stylesheet's initial opacity: 0 lives; fading the inner group instead
+      // would leave the svg permanently transparent.
+      els.arrowSvg = svg;
+    } else {
+      // Both the dot and the trail draw round marks. The trail adds older marks
+      // behind the current one; the dot style has just the one.
+      const count = style === 'trail' ? TRAIL_LENGTH : 1;
+      for (let i = 0; i < count; i++) {
+        const mark = document.createElement('div');
+        mark.className = 'move-mark';
+        pad.appendChild(mark);
+        els.marks.push(mark);
+      }
+      els.dot = els.marks[els.marks.length - 1];
+      els.dot.classList.add('lead');
+    }
+
+    body.appendChild(pad);
+    movementEls = els;
+
+    // Start from rest so a config change does not fling the marker.
+    moveTargetX = 0;
+    moveTargetY = 0;
+    moveCurX = 0;
+    moveCurY = 0;
+    moveTrail = [];
+    lastMoveAt = 0;
+    startMovementLoop();
+  }
+
+  // Turn one delta into a target deflection. The delta is read, clamped, and
+  // dropped; it is never appended to anything.
+  function onMouseMove(dx, dy) {
+    if (!movementEls || !movementConfig) {
+      return;
+    }
+    // sensitivity 10 puts a brisk flick (about 100 px between flushes) at full
+    // deflection; higher values reach full deflection sooner.
+    const gain = movementConfig.sensitivity / 1000;
+    let tx = dx * gain;
+    let ty = dy * gain;
+    const mag = Math.sqrt(tx * tx + ty * ty);
+    if (mag > 1) {
+      tx /= mag;
+      ty /= mag;
+    }
+    moveTargetX = tx;
+    moveTargetY = ty;
+    lastMoveAt = Date.now();
+  }
+
+  function startMovementLoop() {
+    if (moveRaf === null) {
+      moveRaf = requestAnimationFrame(movementFrame);
+    }
+  }
+
+  function stopMovementLoop() {
+    if (moveRaf !== null) {
+      cancelAnimationFrame(moveRaf);
+      moveRaf = null;
+    }
+  }
+
+  function movementFrame() {
+    if (!movementEls) {
+      moveRaf = null;
+      return;
+    }
+
+    // Once deltas stop arriving the mouse is still, so aim for centre.
+    if (Date.now() - lastMoveAt > MOVE_IDLE_MS) {
+      moveTargetX = 0;
+      moveTargetY = 0;
+    }
+
+    moveCurX += (moveTargetX - moveCurX) * MOVE_SMOOTHING;
+    moveCurY += (moveTargetY - moveCurY) * MOVE_SMOOTHING;
+
+    const mag = Math.min(1, Math.sqrt(moveCurX * moveCurX + moveCurY * moveCurY));
+    const active = mag > MOVE_DEADZONE;
+
+    if (movementEls.style === 'arrow') {
+      if (active) {
+        const angle = Math.atan2(moveCurY, moveCurX) * 180 / Math.PI;
+        const scale = 0.4 + 0.6 * mag;
+        movementEls.arrow.setAttribute('transform', 'rotate(' + angle.toFixed(1) + ') scale(' + scale.toFixed(3) + ')');
+        movementEls.arrowSvg.style.opacity = String(0.25 + 0.75 * mag);
+      } else {
+        movementEls.arrowSvg.style.opacity = '0';
+      }
+    } else if (movementEls.style === 'trail') {
+      moveTrail.push({ x: moveCurX, y: moveCurY });
+      while (moveTrail.length > TRAIL_LENGTH) {
+        moveTrail.shift();
+      }
+      // Oldest mark first, so the last element in the pool is always the
+      // current position and keeps the brightest treatment.
+      const offset = TRAIL_LENGTH - moveTrail.length;
+      for (let i = 0; i < TRAIL_LENGTH; i++) {
+        const mark = movementEls.marks[i];
+        const point = moveTrail[i - offset];
+        if (!point) {
+          mark.style.opacity = '0';
+          continue;
+        }
+        setMarkPosition(mark, point.x, point.y);
+        // Fade from the oldest mark to the current one.
+        const age = (i + 1) / TRAIL_LENGTH;
+        mark.style.opacity = String((0.05 + 0.95 * age * age) * (0.35 + 0.65 * mag));
+      }
+    } else {
+      const mark = movementEls.dot;
+      setMarkPosition(mark, moveCurX, moveCurY);
+      mark.style.opacity = String(0.35 + 0.65 * mag);
+    }
+
+    moveRaf = requestAnimationFrame(movementFrame);
+  }
+
+  // Place a mark inside the pad. The two custom properties are unit-less
+  // multipliers the stylesheet turns into a distance from the pad centre, so the
+  // indicator scales with the theme's key size without any pixel maths here.
+  function setMarkPosition(mark, x, y) {
+    mark.style.setProperty('--mx', x.toFixed(4));
+    mark.style.setProperty('--my', y.toFixed(4));
+  }
+
   // How long a combo success flash stays lit, so a tight hit is clearly visible
   // on stream even though the input itself is a fraction of a second.
   const COMBO_FLASH_MS = 450;
@@ -482,6 +689,11 @@
         break;
       case 'wheel':
         onWheel(msg.direction);
+        break;
+      case 'mousemove':
+        // A relative delta only. It sets the indicator's target and is then
+        // gone; no position is reconstructed or kept.
+        onMouseMove(msg.dx, msg.dy);
         break;
       default:
         break;

@@ -43,15 +43,30 @@ function getConfigPath() {
   return path.join(__dirname, '..', 'config.json');
 }
 
-// Absolute path to the firewall helper script. When packaged, the scripts
-// folder is unpacked from the asar archive (see asarUnpack in package.json) so
-// PowerShell can run the file from disk.
-function getFirewallScriptPath() {
-  const relative = path.join('scripts', 'fix-connection.ps1');
+// Absolute path to a helper script in scripts/. When packaged, that folder is
+// unpacked from the asar archive (see asarUnpack in package.json) so PowerShell
+// can run the file from disk.
+function getScriptPath(name) {
+  const relative = path.join('scripts', name);
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'app.asar.unpacked', relative);
   }
   return path.join(__dirname, '..', relative);
+}
+
+function getFirewallScriptPath() {
+  return getScriptPath('fix-connection.ps1');
+}
+
+function getDiagnosticsScriptPath() {
+  return getScriptPath('diagnose.ps1');
+}
+
+// The executable a firewall rule has to name. Only meaningful in the packaged
+// app; running from source the listening process is electron.exe, which is not
+// worth adding a permanent rule for.
+function getAppExePath() {
+  return app.isPackaged ? process.execPath : null;
 }
 
 // The active profile object, sent to clients for rendering.
@@ -128,22 +143,49 @@ function createTray() {
   tray.on('double-click', () => showConfigWindow());
 }
 
-// Apply a saved config. Restart the server if the port changed, then push the
-// active profile to all connected clients so the overlay updates live.
+// Apply a saved config. Bring the server onto the configured port whenever it is
+// not already there, then push the active profile to all connected clients so
+// the overlay updates live.
+//
+// The "not already there" test has to include the case where the server is not
+// running at all. If the first listen failed (the configured port was taken, for
+// example), the app is left with no server, and changing the port in the Config
+// UI is exactly how a user tries to recover. Keying the restart off a port
+// change alone would skip that attempt and leave the app permanently dead with
+// no visible reason.
 async function onConfigSaved(validated) {
+  const wasListening = server ? server.isListening() : false;
   const previousPort = server ? server.getPort() : null;
   currentConfig = validated;
 
-  if (previousPort !== null && validated.server.port !== previousPort) {
+  const needsRestart = !wasListening || validated.server.port !== previousPort;
+
+  if (server && needsRestart) {
     try {
       await server.restart(validated.server.port);
     } catch (err) {
-      console.log('Could not restart the server on port ' + validated.server.port + '.');
+      // The reason is kept on the controller and surfaced in the Config UI's
+      // connection indicator, so the failure is not console-only.
+      console.log('Could not start the server on port ' + validated.server.port + '.');
       console.log('Reason: ' + err.message);
     }
   }
 
   server.broadcastConfig();
+  // Mouse movement capture is only hooked while a profile actually displays it,
+  // so cursor position is not read at all when the feature is off.
+  applyMovementCapture();
+}
+
+// Turn the cursor-movement hook on or off to match the active profile. Called at
+// startup and after every config save.
+function applyMovementCapture() {
+  const profile = getActiveProfile();
+  const enabled = Boolean(
+    profile && profile.mouse && profile.mouse.enabled &&
+    profile.mouse.movement && profile.mouse.movement.show
+  );
+  listener.setMouseMovement(enabled);
 }
 
 async function start() {
@@ -170,6 +212,10 @@ async function start() {
     server.broadcast(event);
   });
 
+  // Hook cursor movement only if the active profile shows the movement
+  // indicator. See applyMovementCapture above.
+  applyMovementCapture();
+
   // Wire up the in-app updater so it can push progress to the Config UI. The
   // window may not exist yet on the first status message; updater.js guards for
   // that. quitAndInstall closes the window, so mark the app as quitting first or
@@ -182,6 +228,8 @@ async function start() {
     setConfig: (next) => { currentConfig = next; },
     getConfigPath,
     getFirewallScriptPath,
+    getDiagnosticsScriptPath,
+    getAppExePath,
     getServer: () => server,
     onConfigSaved,
     isUpdateSupported: () => app.isPackaged,

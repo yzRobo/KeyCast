@@ -207,6 +207,48 @@
           <span class="row-label">Scroll wheel flash</span>
           <label class="toggle"><input type="checkbox" id="mouseScroll" /><span class="track"></span><span class="thumb"></span></label>
         </div>
+
+        <div class="row">
+          <span class="row-label">Movement indicator
+            <span class="row-sublabel">
+              Shows which way you are moving the mouse, drawn on the palm area of
+              the mouse. This
+              is the one feature that reads the cursor position, so it is off
+              until you turn it on. Only the direction of movement is sent to the
+              overlay, never where the pointer is on screen.
+            </span>
+          </span>
+          <label class="toggle"><input type="checkbox" id="mouseMoveShow" /><span class="track"></span><span class="thumb"></span></label>
+        </div>
+
+        <div id="mouseMoveFields" hidden>
+          <div class="row">
+            <span class="row-label">Style</span>
+            <select id="mouseMoveStyle" class="select"
+                    title="Dot: a marker that pushes off centre and springs back. Arrow: points the way and grows with speed. Trail: a fading trail of recent movement.">
+              <option value="dot">Dot</option>
+              <option value="arrow">Arrow</option>
+              <option value="trail">Trail</option>
+            </select>
+          </div>
+          <div class="row">
+            <span class="row-label">Sensitivity
+              <span class="row-sublabel">
+                How far the indicator moves for a given flick. Raise it if the
+                indicator barely moves, lower it if it pins to the edge.
+              </span>
+            </span>
+            <div class="slider-field">
+              <input type="range" id="sliderMoveSensitivity" min="1" max="30" step="1" />
+              <span class="slider-value" id="valMoveSensitivity"></span>
+            </div>
+          </div>
+          <div class="obs-tip">
+            Games that lock the pointer to the window can limit how much movement
+            KeyCast sees. If the indicator looks flat in a game but works on the
+            desktop, that is why.
+          </div>
+        </div>
       </section>
 
       <!-- Theme -->
@@ -300,6 +342,10 @@
           </span>
           <input type="number" id="portInput" class="number-input" min="1" max="65535" step="1" />
         </div>
+        <!-- Filled in only when the server is not listening. Without this the
+             only record of a failed start is a console line the user cannot
+             see, and the overlay just never appears. -->
+        <div id="serverError" class="server-error" hidden></div>
       </section>
 
       <!-- OBS Browser Source URLs -->
@@ -323,14 +369,26 @@
             <button id="copyLan" class="btn">Copy</button>
           </div>
           <div class="url-line">
+            <span class="url-label" title="Open this in a normal web browser on the streaming PC. If it loads, the connection works and any remaining problem is in OBS. If it does not load, the streaming PC cannot reach this PC at all.">Test page</span>
+            <span id="urlTest" class="url-value"></span>
+            <button id="copyTest" class="btn">Copy</button>
+          </div>
+          <div class="url-line">
             <span class="url-label">Network adapter</span>
             <select id="lanAdapter" class="select"
                     title="Pick the adapter the streaming PC can reach. Most home setups use Wi-Fi or Ethernet. VPN and virtual adapters (Tailscale, WSL, VirtualBox) also appear here."></select>
           </div>
           <div class="obs-tip">
+            Setting up 2PC? Before touching OBS, open the <b>Test page</b> address
+            in a normal web browser on the streaming PC. If it loads, the network
+            is fine and you can paste the <b>2PC / LAN</b> address into OBS. If it
+            does not load, the two PCs cannot reach each other yet, and nothing in
+            OBS will fix that. See the 2PC Connection section below.
+            <br /><br />
             Seeing the wrong 2PC address? If your PC has more than one network
             adapter (a VPN, or a virtual adapter from WSL or a VM), pick the one
-            your streaming PC is on. The 2PC / LAN URL above updates to match.
+            your streaming PC is on. The URLs above update to match. Entries
+            marked "VPN or virtual" are usually not the one you want.
           </div>
         </div>
       </section>
@@ -341,12 +399,33 @@
         <div class="row">
           <span class="row-label">Allow on local network
             <span class="row-sublabel">
-              Adds a Windows Firewall rule so a second PC can reach the overlay.
-              Only needed if the overlay loads here but not on the streaming PC.
-              A Windows permission prompt will appear; this is expected.
+              Adds Windows Firewall rules so a second PC can reach the overlay,
+              and turns off any rule that is blocking KeyCast. A blocking rule is
+              created when Windows asks whether to let KeyCast onto the network
+              and the prompt is dismissed; it overrides everything else, so this
+              is worth running even if you have allowed the port before. A Windows
+              permission prompt will appear; this is expected.
             </span>
           </span>
           <button id="fixFirewall" class="btn">Allow through firewall</button>
+        </div>
+        <div class="row">
+          <span class="row-label">Still not connecting
+            <span class="row-sublabel">
+              Copies a report of your server, network adapters, and firewall
+              settings to the clipboard, so you can paste it into a bug report.
+              It contains no key or mouse data.
+            </span>
+          </span>
+          <button id="copyDiagnostics" class="btn">Copy diagnostics</button>
+        </div>
+        <div class="obs-tip">
+          Two things this app cannot change for you: a third-party security suite
+          (Norton, ESET, Kaspersky, Bitdefender, Avast, McAfee) enforces its own
+          firewall and needs KeyCast allowed there separately, and most VPN clients
+          block local network traffic unless you enable their "allow LAN" or
+          "local network sharing" setting. If the test page will not load, try
+          disconnecting the VPN once to see whether that is the cause.
         </div>
       </section>
 

@@ -617,6 +617,19 @@ input[type="range"]:focus-visible {
   margin-bottom: 14px;
 }
 
+/* Reason the server is not listening. Shown in the Server section only when
+ * there is something to report, so it never adds noise to a working setup. */
+.server-error {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 6px;
+  background: rgba(248, 113, 113, 0.08);
+  color: #f87171;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 /* URL display */
 .url-block {
   display: flex;

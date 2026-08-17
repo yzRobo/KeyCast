@@ -30,6 +30,10 @@ contextBridge.exposeInMainWorld('keycast', {
   // Run the firewall helper for 2PC setups. Triggers a Windows UAC prompt.
   fixFirewall: () => ipcRenderer.invoke('firewall:fix'),
 
+  // Build a plain-text report of the server, network adapter, and firewall
+  // state, for pasting into a bug report. Read-only; contains no input data.
+  getDiagnostics: () => ipcRenderer.invoke('diagnostics:report'),
+
   // Get the running version and whether in-app updates are supported.
   getUpdateInfo: () => ipcRenderer.invoke('update:info'),
 

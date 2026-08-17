@@ -238,6 +238,103 @@ body {
   background: var(--key-pressed);
 }
 
+/* Mouse movement indicator. A round gauge drawn on the palm area of the mouse
+ * body (below the buttons and wheel) showing which way the mouse is moving.
+ * The app sends relative movement only, so nothing here maps to a position on
+ * screen.
+ *
+ * Marks are placed with two unit-less custom properties, --mx and --my, each
+ * running from -1 to 1. The pad turns them into a distance from its centre, so
+ * the indicator scales with the theme's key size on its own. */
+.move-pad {
+  --pad-size: calc(var(--key-size) * 1.05);
+  /* Kept short of the pad edge so a full-deflection mark stays inside. */
+  --pad-reach: calc(var(--pad-size) * 0.32);
+  position: absolute;
+  left: 50%;
+  /* Centred on the palm: the buttons end at 46% of the body, so the free space
+   * below runs from there to the bottom edge. */
+  top: 71%;
+  width: var(--pad-size);
+  height: var(--pad-size);
+  transform: translate(-50%, -50%);
+  border: 1.5px solid var(--border-idle);
+  border-radius: 999px;
+  background: var(--key-idle);
+  overflow: hidden;
+}
+
+/* Faint centre crosshair, so the pad reads as a direction gauge at rest. */
+.move-pad::before,
+.move-pad::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: var(--border-idle);
+}
+
+.move-pad::before {
+  width: 1px;
+  height: 22%;
+  transform: translate(-50%, -50%);
+}
+
+.move-pad::after {
+  width: 22%;
+  height: 1px;
+  transform: translate(-50%, -50%);
+}
+
+/* A round mark: the marker in the dot style, one link in the trail style. */
+.move-mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16%;
+  height: 16%;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--key-pressed);
+  transform:
+    translate(-50%, -50%)
+    translate(calc(var(--mx, 0) * var(--pad-reach)), calc(var(--my, 0) * var(--pad-reach)));
+  opacity: 0.35;
+}
+
+/* The current position in a trail sits slightly larger than the marks behind it
+ * so the leading edge of a flick is obvious. */
+.move-pad.style-trail .move-mark {
+  width: 11%;
+  height: 11%;
+}
+
+.move-pad.style-trail .move-mark.lead {
+  width: 16%;
+  height: 16%;
+}
+
+/* Arrow style. The SVG viewBox is centred on the origin, so overlay.js can
+ * rotate and scale the group about the pad centre directly. */
+.move-arrow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  opacity: 0;
+}
+
+.move-arrow line {
+  stroke: var(--key-pressed);
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.move-arrow polygon {
+  fill: var(--key-pressed);
+}
+
 /* Per-button click counters, shown as small muted numbers beside the mouse. */
 .mouse-counters {
   display: flex;

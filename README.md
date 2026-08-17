@@ -31,6 +31,13 @@ readable, and every place that reads an input has a comment confirming the data
 is not stored. The one file that touches raw input is
 [src/listener.js](src/listener.js).
 
+The optional mouse movement indicator is the one feature that reads the cursor
+position, so it is off by default and hooked only while a profile displays it.
+Computing "which way did the mouse move" requires remembering the previous
+cursor position: exactly one coordinate pair is kept in memory, overwritten by
+the next event, and never written anywhere. What is sent to the overlay is the
+relative direction of movement only, never where the pointer is on screen.
+
 The only outbound request is to Google Fonts, for the typefaces. No input is
 involved. To run fully offline, swap the Google Fonts links for local font files.
 
@@ -75,6 +82,9 @@ opens the settings window.
 
 The background is transparent, so it sits cleanly over your scene. The overlay
 reconnects on its own if KeyCast restarts.
+
+If the overlay ever looks stale after a KeyCast update, open the Browser source
+properties and click **Refresh cache of current page**.
 
 ---
 
@@ -124,6 +134,12 @@ Everything is set in the KeyCast window. No file editing needed.
   flash and per-button click counters. Position it anywhere by dragging the
   MOUSE box in the layout editor, or set its grid column and row in the Mouse
   section.
+- **Movement indicator:** shows which way you are moving the mouse, drawn on the
+  palm area of the mouse. Three styles: a dot that pushes off centre and springs
+  back, an arrow that points the way and grows with speed, and a fading trail.
+  The sensitivity slider sets how far a flick deflects it. Off by default; see
+  [Privacy and Security](#privacy-and-security) for what it does and does not
+  read.
 - **Theme:** choose a preset, then change any color, the animation, and the size,
   gap, and scale.
 - **Counters:** turn the keys-per-second display on or off.
@@ -149,29 +165,55 @@ The selected profile is the one shown on the overlay.
 
 ## Troubleshooting
 
-**Overlay works on the gaming PC but not the streaming PC.** The gaming PC's
-firewall is blocking the connection. The connection indicator in the top right of
-the KeyCast window also helps here: "Waiting for OBS" means no source has
-connected yet, and a count appears once OBS reaches the overlay.
+**Start with the test page.** KeyCast serves a connection check at
+`http://<gaming-pc-ip>:<port>/test` (the exact address is shown in the OBS
+Browser Source section, labeled "Test page"). Open it in a normal web browser on
+the streaming PC:
 
-The easiest fix is built into the app:
+- **It loads:** the network is fine. The problem is in OBS. Check that the
+  Browser Source URL is the 2PC / LAN address (not `localhost`, which only works
+  on the gaming PC itself), click **Refresh cache of current page** in the
+  source properties, and make sure the source is visible and not covered.
+- **It does not load:** the streaming PC cannot reach the gaming PC. Nothing in
+  OBS will help until it does. Work through the list below.
 
-1. On the gaming PC, open KeyCast and go to the **2PC Connection** section.
-2. Click **Allow through firewall**.
-3. Approve the Windows permission prompt. This is expected, because firewall
-   changes need administrator rights.
+**The streaming PC cannot reach the gaming PC.**
 
-That adds one firewall rule for the KeyCast port and is safe to click more than
-once.
+1. On the gaming PC, open KeyCast, go to **2PC Connection**, and click **Allow
+   through firewall**. Approve the Windows permission prompt (expected, because
+   firewall changes need administrator rights). Besides allowing the port, this
+   also turns off any rule that is actively blocking KeyCast. Windows creates
+   one of those when its "allow this app on the network" prompt gets dismissed,
+   and a blocking rule overrides every allow rule, so this is worth clicking
+   even if you have allowed the port before.
+2. Check the **Network adapter** dropdown. If your gaming PC has a VPN or a
+   virtual adapter (Tailscale, WSL, VirtualBox), the auto-detected address may
+   be on the wrong network. Entries marked "VPN or virtual" are usually not the
+   one you want. Both PCs must be on the same network for a LAN setup.
+3. If you use a VPN, its client may block local network traffic. Look for an
+   "allow LAN" or "local network sharing" setting, or disconnect the VPN once to
+   test. Turning the VPN off and on does not help if the setting is the problem.
+4. If you use a third-party security suite (Norton, ESET, Kaspersky,
+   Bitdefender, Avast, McAfee), it has its own firewall and ignores Windows
+   Firewall rules. Allow KeyCast there as well.
+5. Still stuck? Click **Copy diagnostics** in the 2PC Connection section and
+   paste the report into a [GitHub issue](https://github.com/yzRobo/KeyCast/issues).
+   It covers the server, adapters, and firewall state, and contains no input
+   data.
 
-If you prefer to do it by hand, or the button does not work, run the script
-directly: open the `scripts` folder, right-click `fix-connection.ps1`, and choose
-**Run with PowerShell** (or **Run as administrator** if it does not elevate on
-its own). It does the same thing.
+You can also run the firewall fix by hand: open the `scripts` folder,
+right-click `fix-connection.ps1`, and choose **Run with PowerShell**. It does
+the same thing as the button and prints what it found.
 
-**The app says the port is in use.** Another program has the port. In the Server
-section, change the port (for example to 8766). The OBS URL updates automatically,
-so update it in OBS. On a 2PC setup, re-run `fix-connection.ps1` for the new port.
+**The Server section shows a red error.** Another program has the port. Change
+the port (for example to 8766); KeyCast restarts the server on the new port
+right away. The OBS URLs update automatically, so update the URL in OBS too. On
+a 2PC setup, click **Allow through firewall** again for the new port.
+
+The connection indicator in the top right also tells you where things stand:
+"Server not running" means the port could not be opened, "Waiting for OBS" means
+the server is up but no source has connected, and a count appears once OBS
+reaches the overlay.
 
 ---
 

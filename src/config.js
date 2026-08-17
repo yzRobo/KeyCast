@@ -47,6 +47,12 @@ const THEME_PRESETS = {
 const VALID_ANIMATIONS = ['fade', 'pop', 'none'];
 const VALID_PRESETS = Object.keys(THEME_PRESETS);
 
+// How the mouse movement indicator draws the direction the mouse is moving.
+//   dot    a pad with a marker that pushes off centre and springs back
+//   arrow  a single arrow pointing the way, growing with speed
+//   trail  a fading trail of recent movement inside the pad
+const VALID_MOVEMENT_STYLES = ['dot', 'arrow', 'trail'];
+
 // Returns a fresh default configuration object. Mirrors the schema in the
 // project specification exactly.
 function getDefaultConfig() {
@@ -87,7 +93,15 @@ function getDefaultConfig() {
               m4: { show: false, counter: false },
               m5: { show: false, counter: false }
             },
-            scroll: true
+            scroll: true,
+            // Mouse movement indicator. Off by default: it is the only feature
+            // that reads the cursor position, so it is opt-in. sensitivity sets
+            // how far the indicator deflects for a given amount of movement.
+            movement: {
+              show: false,
+              style: 'dot',
+              sensitivity: 10
+            }
           },
           theme: {
             preset: 'minimal-dark',
@@ -181,6 +195,18 @@ function validateMouseButton(button) {
   };
 }
 
+// Validate the mouse movement indicator settings. A config written by an older
+// KeyCast has no movement block at all, so every field falls back to a default
+// and the feature stays off until the user turns it on.
+function validateMouseMovement(movement, defaults) {
+  const safe = movement && typeof movement === 'object' ? movement : {};
+  return {
+    show: safe.show === true,
+    style: VALID_MOVEMENT_STYLES.includes(safe.style) ? safe.style : defaults.style,
+    sensitivity: Math.round(clampNumber(safe.sensitivity, 1, 30, defaults.sensitivity))
+  };
+}
+
 // Validate and normalize a single profile against the schema. Unknown fields
 // are dropped and missing fields are filled from the default profile.
 function validateProfile(profile, fallbackName) {
@@ -218,7 +244,8 @@ function validateProfile(profile, fallbackName) {
         m4: validateMouseButton(buttonsSafe.m4),
         m5: validateMouseButton(buttonsSafe.m5)
       },
-      scroll: mouseSafe.scroll !== false
+      scroll: mouseSafe.scroll !== false,
+      movement: validateMouseMovement(mouseSafe.movement, defaults.mouse.movement)
     },
     theme: {
       preset,
@@ -323,6 +350,7 @@ module.exports = {
   THEME_PRESETS,
   VALID_ANIMATIONS,
   VALID_PRESETS,
+  VALID_MOVEMENT_STYLES,
   getDefaultConfig,
   validateConfig,
   load,

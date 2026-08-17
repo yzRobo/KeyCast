@@ -707,6 +707,28 @@
     }
   }
 
+  // Fill the movement indicator controls and show or hide the ones that only
+  // apply while the indicator is on. A profile saved by an older KeyCast has no
+  // movement block, so fall back to the defaults the main process validates to.
+  function renderMovementControls() {
+    const movement = activeProfile().mouse.movement || { show: false, style: 'dot', sensitivity: 10 };
+    el('mouseMoveShow').checked = movement.show;
+    el('mouseMoveStyle').value = movement.style;
+    el('sliderMoveSensitivity').value = movement.sensitivity;
+    el('valMoveSensitivity').textContent = String(movement.sensitivity);
+    el('mouseMoveFields').hidden = !movement.show;
+  }
+
+  // Movement settings live under mouse.movement, which older configs lack.
+  // Everything that writes one goes through here so the block is created once.
+  function movementSettings() {
+    const mouse = activeProfile().mouse;
+    if (!mouse.movement || typeof mouse.movement !== 'object') {
+      mouse.movement = { show: false, style: 'dot', sensitivity: 10 };
+    }
+    return mouse.movement;
+  }
+
   // --- populate all controls from the active profile ---
   function populate() {
     const p = activeProfile();
@@ -730,6 +752,7 @@
     el('mouseM5Show').checked = p.mouse.buttons.m5.show;
     el('mouseM5Counter').checked = p.mouse.buttons.m5.counter;
     el('mouseScroll').checked = p.mouse.scroll;
+    renderMovementControls();
 
     el('themePreset').value = p.theme.preset;
     refreshColorFields();
@@ -846,6 +869,24 @@
     bindMouseToggle('mouseM5Counter', (p, v) => { p.mouse.buttons.m5.counter = v; });
     bindMouseToggle('mouseScroll', (p, v) => { p.mouse.scroll = v; });
 
+    // Movement indicator. Turning it on is what makes the main process attach
+    // the cursor hook, so this toggle is the whole opt-in.
+    el('mouseMoveShow').addEventListener('change', (e) => {
+      movementSettings().show = e.target.checked;
+      el('mouseMoveFields').hidden = !e.target.checked;
+      scheduleSave();
+    });
+    el('mouseMoveStyle').addEventListener('change', (e) => {
+      movementSettings().style = e.target.value;
+      scheduleSave();
+    });
+    el('sliderMoveSensitivity').addEventListener('input', (e) => {
+      const value = clampInt(e.target.value, 1, 30, 10);
+      movementSettings().sensitivity = value;
+      el('valMoveSensitivity').textContent = String(value);
+      scheduleSave();
+    });
+
     el('themePreset').addEventListener('change', (e) => {
       const preset = e.target.value;
       activeProfile().theme.preset = preset;
@@ -879,14 +920,18 @@
       config.server.port = port;
       await api.saveConfig(config);
       // The server restarts on the new port. Refresh the URLs and reload the
-      // preview so it reconnects to the new address.
+      // preview so it reconnects to the new address, and re-read the server
+      // state straight away so a port that is also taken says so immediately
+      // rather than after the next poll.
       await loadUrls();
       reloadPreview();
       reconnectStatus();
+      pollSources();
     });
 
     el('copyLocalhost').addEventListener('click', () => copyText(el('urlLocalhost').textContent));
     el('copyLan').addEventListener('click', () => copyText(el('urlLan').textContent));
+    el('copyTest').addEventListener('click', () => copyText(el('urlTest').textContent));
 
     // Choosing a network adapter saves the address and refreshes the LAN URL.
     // An empty value (no adapters) clears the choice back to auto-pick.
@@ -912,6 +957,28 @@
         }
       } catch (err) {
         showToast('Could not start the firewall helper.');
+      }
+    });
+
+    el('copyDiagnostics').addEventListener('click', async () => {
+      if (!api.getDiagnostics) {
+        showToast('Restart KeyCast (quit from the tray) to enable this button.');
+        return;
+      }
+      const button = el('copyDiagnostics');
+      const original = button.textContent;
+      // Reading the firewall rule list takes a few seconds on some machines, so
+      // say something rather than looking frozen.
+      button.disabled = true;
+      button.textContent = 'Collecting…';
+      try {
+        const report = await api.getDiagnostics();
+        await copyText(report);
+      } catch (err) {
+        showToast('Could not build the diagnostics report.');
+      } finally {
+        button.disabled = false;
+        button.textContent = original;
       }
     });
 
@@ -1050,6 +1117,9 @@
     const urls = await api.getUrls();
     el('urlLocalhost').textContent = urls.localhost;
     el('urlLan').textContent = urls.lan;
+    // urls.test is absent when running against an older main process that has
+    // not been restarted yet, so derive it rather than showing "undefined".
+    el('urlTest').textContent = urls.test || (urls.lan + '/test');
     populateLanAdapters(urls);
   }
 
@@ -1078,7 +1148,10 @@
     for (const item of addresses) {
       const opt = document.createElement('option');
       opt.value = item.address;
-      opt.textContent = item.name + ' - ' + item.address;
+      // Adapters that look like a VPN, a VM bridge, or WSL are called out,
+      // because picking one of those is the usual reason the streaming PC never
+      // connects. The list is ordered most-likely first by the main process.
+      opt.textContent = item.name + ' - ' + item.address + (item.virtual ? '  (VPN or virtual)' : '');
       select.appendChild(opt);
     }
     if (urls.selectedAddress) {
@@ -1111,6 +1184,11 @@
   //      process. This is what tells you OBS is actually receiving the overlay.
   let serverReachable = false;
   let sourceCount = 0;
+  // Whether the main process actually has a listening socket, and why not if it
+  // does not. These come from IPC rather than from the status WebSocket, because
+  // the whole point is to describe the case where no socket exists to connect to.
+  let serverListening = true;
+  let serverError = null;
 
   function connectStatus() {
     const port = config.server.port;
@@ -1152,14 +1230,17 @@
     }
   }
 
-  // Poll the number of connected OBS overlay sources and refresh the indicator.
+  // Poll the server state and refresh the indicator. This runs whether or not
+  // the status WebSocket is up: when the server never started there is nothing
+  // to connect to, and that is exactly the case the user needs explained.
   async function pollSources() {
-    if (!serverReachable) {
-      return;
-    }
     try {
       const status = await api.getStatus();
       sourceCount = status.sources;
+      // An older main process that has not been restarted omits these fields.
+      // Treat a missing value as "listening" so the UI does not invent a fault.
+      serverListening = status.listening !== false;
+      serverError = status.error || null;
     } catch (err) {
       sourceCount = 0;
     }
@@ -1167,13 +1248,30 @@
   }
   setInterval(pollSources, 2000);
 
-  // Render the indicator from the current server and source state. Three
-  // states: server offline, server up with no sources, server up with sources.
+  // Render the indicator from the current server and source state. Four states:
+  // server not running, server running but unreachable, server up with no
+  // sources, and server up with sources.
   function applyStatus() {
     const node = el('connStatus');
     const text = node.querySelector('.status-text');
     node.classList.remove('connected', 'disconnected', 'idle');
 
+    const errorNode = el('serverError');
+    if (errorNode) {
+      const failed = !serverListening;
+      errorNode.hidden = !failed;
+      errorNode.textContent = failed
+        ? (serverError || 'The server is not running. Try a different port.')
+        : '';
+    }
+
+    if (!serverListening) {
+      node.classList.add('disconnected');
+      text.textContent = 'Server not running';
+      node.title = serverError || 'The server could not start. See the Server section.';
+      return;
+    }
+    node.title = '';
     if (!serverReachable) {
       node.classList.add('disconnected');
       text.textContent = 'Server offline';
