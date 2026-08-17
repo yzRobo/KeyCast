@@ -1,6 +1,6 @@
 {
   "name": "keycast",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A real-time keyboard and mouse input overlay for streamers, built with Electron. Zero data storage.",
   "license": "GPL-3.0-or-later",
   "author": "KeyCast contributors",

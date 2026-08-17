@@ -226,11 +226,15 @@ body {
   transition: background-color 140ms ease;
 }
 
-.mouse-side.m4 {
+/* The overlay draws the mouse front-up, and on a physical mouse the forward
+ * button (M5, XBUTTON2) sits toward the front with the back button (M4,
+ * XBUTTON1) behind it. So M5 takes the upper spot and M4 the lower one; the
+ * other way around reads as the two buttons being swapped. */
+.mouse-side.m5 {
   top: 30%;
 }
 
-.mouse-side.m5 {
+.mouse-side.m4 {
   top: 47%;
 }
 
