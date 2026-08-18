@@ -231,6 +231,7 @@ async function start() {
     getDiagnosticsScriptPath,
     getAppExePath,
     getServer: () => server,
+    getMovementSource: () => listener.getMovementSource(),
     onConfigSaved,
     isUpdateSupported: () => app.isPackaged,
     getAppVersion: () => app.getVersion(),

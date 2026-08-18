@@ -11,14 +11,22 @@
 // this module. Every individual capture point below repeats this guarantee
 // inline so the code can be audited at a glance.
 //
-// The mouse movement indicator is the one capture point that needs a value to
-// outlive its callback: computing "which way did the mouse move" requires the
-// previous cursor position. Exactly one coordinate pair is kept, it is
-// overwritten by the next event, and it is never sent anywhere. What goes out
-// is a relative delta, never an absolute cursor position, so the overlay is
-// told the direction of movement and never where on screen the pointer is. The
-// hook is only attached while a profile actually displays the indicator, so
-// with the feature off the cursor position is not read at all.
+// The mouse movement indicator has two capture paths, tried in this order:
+//
+//   raw    The native module in native/rawinput reads relative motion from the
+//          Windows Raw Input stream, the same source games use. It sees only
+//          the movement counts the device reported; no cursor position exists
+//          anywhere on this path. This is what makes the indicator work inside
+//          games that lock the pointer.
+//   hook   Fallback via the uiohook cursor events when the native module is
+//          not built (running from source without a compiler) or fails to
+//          start. Computing "which way did the mouse move" from cursor events
+//          requires the previous cursor position: exactly one coordinate pair
+//          is kept, overwritten by the next event, and never sent anywhere.
+//
+// Both paths broadcast relative deltas only, and neither is active unless a
+// profile actually displays the indicator. Set the KEYCAST_NO_RAWINPUT
+// environment variable to force the hook path for troubleshooting.
 
 const { uIOhook, UiohookKey } = require('uiohook-napi');
 
@@ -37,11 +45,36 @@ const EVENT_MOUSE_DRAGGED = 10;
 const MOVE_FLUSH_MS = 16;
 
 // Single-event jumps larger than this are treated as a cursor warp rather than
-// real movement. Games that lock the pointer routinely snap it back to the
-// centre of the screen every frame, and counting those snaps would cancel out
-// the movement that preceded them. A genuine fast flick still moves far less
-// than this between two hook reports.
+// real movement (hook path only; the raw path never sees warps because
+// programmatic cursor moves do not come from the device). Games that lock the
+// pointer routinely snap it back to the centre of the screen every frame, and
+// counting those snaps would cancel out the movement that preceded them. A
+// genuine fast flick still moves far less than this between two hook reports.
 const WARP_JUMP_PX = 220;
+
+// Raw input deltas are hardware counts with no pointer acceleration applied, so
+// they run hotter than cursor pixels. Scaled down so the two paths feel alike
+// at the same sensitivity setting.
+const RAW_SCALE = 0.5;
+
+// Load the native raw input reader. Optional on purpose: running from source
+// without a compiler, on another platform, or with KEYCAST_NO_RAWINPUT set all
+// leave it null and movement falls back to the cursor hook. When packaged, the
+// binary lives outside the asar archive and Electron redirects this require to
+// the unpacked copy automatically.
+function loadRawInput() {
+  if (process.platform !== 'win32' || process.env.KEYCAST_NO_RAWINPUT) {
+    return null;
+  }
+  const path = require('path');
+  try {
+    return require(path.join(__dirname, '..', 'native', 'rawinput', 'build', 'Release', 'rawinput.node'));
+  } catch (err) {
+    return null;
+  }
+}
+
+const rawInput = loadRawInput();
 
 // Build a reverse lookup from uiohook keycode to a normalized key name that
 // matches the names used in config.json (lowercase letters, "space", "ctrl",
@@ -102,8 +135,10 @@ let running = false;
 //                in the privacy note at the top of this file
 //   accumX/Y     movement summed since the last flush
 //   flushTimer   the interval that drains the accumulator
+//   moveSource   which capture path is active: 'raw', 'hook', or 'off'
 let emit = null;
 let movementOn = false;
+let moveSource = 'off';
 let lastX = null;
 let lastY = null;
 let accumX = 0;
@@ -149,22 +184,33 @@ function onRawInput(e) {
 // Nothing is sent while the mouse is still, so an idle machine produces no
 // traffic at all.
 function flushMovement() {
-  if (accumX === 0 && accumY === 0) {
+  let dx = 0;
+  let dy = 0;
+  if (moveSource === 'raw') {
+    // The native side sums device counts and hands them over atomically. This
+    // read also resets its accumulator, so nothing lingers in native memory.
+    const d = rawInput.getDelta();
+    dx = Math.round(d.dx * RAW_SCALE);
+    dy = Math.round(d.dy * RAW_SCALE);
+  } else {
+    dx = accumX;
+    dy = accumY;
+    accumX = 0;
+    accumY = 0;
+  }
+  if (dx === 0 && dy === 0) {
     return;
   }
-  const dx = accumX;
-  const dy = accumY;
-  accumX = 0;
-  accumY = 0;
   if (emit) {
-    // A relative delta only. The absolute cursor position never leaves this
-    // module. The descriptor is broadcast immediately and then discarded.
+    // A relative delta only. No cursor position ever leaves this module.
+    // The descriptor is broadcast immediately and then discarded.
     emit({ type: 'mousemove', dx, dy });
   }
 }
 
-// Attach or detach cursor movement capture. Called by main.js from the active
-// profile, so the hook exists only while the overlay actually draws movement.
+// Attach or detach movement capture. Called by main.js from the active profile,
+// so capture exists only while the overlay actually draws movement. Prefers the
+// raw input reader and falls back to the cursor hook.
 function setMouseMovement(enabled) {
   const next = Boolean(enabled) && running;
   if (next === movementOn) {
@@ -172,25 +218,42 @@ function setMouseMovement(enabled) {
   }
 
   if (next) {
-    uIOhook.on('input', onRawInput);
+    if (rawInput && rawInput.start()) {
+      moveSource = 'raw';
+      console.log('Mouse movement capture on (raw input). Relative device motion only; no cursor position exists on this path.');
+    } else {
+      uIOhook.on('input', onRawInput);
+      moveSource = 'hook';
+      console.log('Mouse movement capture on (cursor hook fallback). Only relative deltas are broadcast; cursor position is never sent or stored.');
+    }
     flushTimer = setInterval(flushMovement, MOVE_FLUSH_MS);
     movementOn = true;
-    console.log('Mouse movement capture on. Only relative deltas are broadcast; cursor position is never sent or stored.');
     return;
   }
 
-  uIOhook.off('input', onRawInput);
+  if (moveSource === 'raw') {
+    rawInput.stop();
+  } else {
+    uIOhook.off('input', onRawInput);
+  }
   if (flushTimer) {
     clearInterval(flushTimer);
     flushTimer = null;
   }
-  // Drop the retained position and any partial movement.
+  // Drop the retained hook-path position and any partial movement.
   lastX = null;
   lastY = null;
   accumX = 0;
   accumY = 0;
+  moveSource = 'off';
   movementOn = false;
-  console.log('Mouse movement capture off. Cursor position is no longer read.');
+  console.log('Mouse movement capture off.');
+}
+
+// Which movement capture path is active. Shown in the diagnostics report so a
+// support thread can tell instantly whether in-game movement should work.
+function getMovementSource() {
+  return moveSource;
 }
 
 // Start global capture. onEvent is called once per input event with a small
@@ -273,5 +336,6 @@ function stop() {
 module.exports = {
   start,
   stop,
-  setMouseMovement
+  setMouseMovement,
+  getMovementSource
 };

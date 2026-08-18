@@ -244,9 +244,10 @@
             </div>
           </div>
           <div class="obs-tip">
-            Games that lock the pointer to the window can limit how much movement
-            KeyCast sees. If the indicator looks flat in a game but works on the
-            desktop, that is why.
+            Movement is read from the same hardware input stream games use, so
+            the indicator keeps working inside games that lock the pointer. If
+            you run KeyCast from source without building the native helper, it
+            falls back to following the cursor, which those games limit.
           </div>
         </div>
       </section>

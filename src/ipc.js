@@ -245,7 +245,11 @@ function register(deps) {
       sources: server ? server.getOverlayClientCount() : 0,
       port: deps.getConfig().server.port,
       listening: server ? server.isListening() : false,
-      error: server ? server.getLastError() : 'The server was never created.'
+      error: server ? server.getLastError() : 'The server was never created.',
+      // Which movement capture path is active: 'raw' (reads the hardware input
+      // stream, works inside pointer-locking games), 'hook' (cursor fallback,
+      // limited by such games), or 'off'.
+      movementSource: deps.getMovementSource ? deps.getMovementSource() : 'off'
     };
   });
 
@@ -275,6 +279,8 @@ function register(deps) {
       lines.push('   last error: ' + server.getLastError());
     }
     lines.push('   overlay sources connected: ' + (server ? server.getOverlayClientCount() : 0));
+    lines.push('   movement capture: ' + (deps.getMovementSource ? deps.getMovementSource() : 'off') +
+      ' (raw = hardware input stream, works in games; hook = cursor fallback; off = indicator disabled)');
     lines.push('');
     lines.push('-- Network adapters seen by KeyCast');
     const addresses = listLocalIpAddresses();

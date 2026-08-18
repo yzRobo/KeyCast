@@ -147,3 +147,6 @@ key-overlay-spec.md
 # layout choices. Never committed.
 config.json
 
+
+# Native module build output (built by npm run build-native)
+native/rawinput/build/

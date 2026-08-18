@@ -31,12 +31,18 @@ readable, and every place that reads an input has a comment confirming the data
 is not stored. The one file that touches raw input is
 [src/listener.js](src/listener.js).
 
-The optional mouse movement indicator is the one feature that reads the cursor
-position, so it is off by default and hooked only while a profile displays it.
-Computing "which way did the mouse move" requires remembering the previous
-cursor position: exactly one coordinate pair is kept in memory, overwritten by
-the next event, and never written anywhere. What is sent to the overlay is the
-relative direction of movement only, never where the pointer is on screen.
+The optional mouse movement indicator is off by default and captures only while
+a profile displays it. In the installed app it reads the Windows Raw Input
+stream through the small native module in
+[native/rawinput](native/rawinput/rawinput.c): the stream carries the relative
+movement counts the mouse reported, so on this path no cursor position exists
+anywhere in KeyCast, and nothing is retained beyond two running totals that are
+read and reset a few times per second. Running from source without the native
+module built, the indicator falls back to watching the cursor instead; that
+path must remember the previous cursor position to compute a direction, and
+exactly one coordinate pair is kept in memory, overwritten by the next event,
+and never written anywhere. Both paths send the overlay the relative direction
+of movement only, never where the pointer is on screen.
 
 The only outbound request is to Google Fonts, for the typefaces. No input is
 involved. To run fully offline, swap the Google Fonts links for local font files.
@@ -70,6 +76,18 @@ npm start
 
 On first run KeyCast creates a default `config.json`, starts the server, and
 opens the settings window.
+
+One optional extra: the movement indicator's in-game capture uses a small
+native module. The installer ships it prebuilt, but from source it needs a one
+time build with the Visual Studio Build Tools (C++ workload) installed:
+
+```
+npm run build-native
+```
+
+Skipping this is fine. Without it the movement indicator still works on the
+desktop; it falls back to following the cursor, which games that lock the
+pointer limit. Everything else is unaffected.
 
 ---
 
@@ -137,7 +155,9 @@ Everything is set in the KeyCast window. No file editing needed.
 - **Movement indicator:** shows which way you are moving the mouse, drawn on the
   palm area of the mouse. Three styles: a dot that pushes off centre and springs
   back, an arrow that points the way and grows with speed, and a fading trail.
-  The sensitivity slider sets how far a flick deflects it. Off by default; see
+  The sensitivity slider sets how far a flick deflects it. Movement is read from
+  the same hardware input stream games use, so it keeps working inside games
+  that lock the pointer. Off by default; see
   [Privacy and Security](#privacy-and-security) for what it does and does not
   read.
 - **Theme:** choose a preset, then change any color, the animation, and the size,
