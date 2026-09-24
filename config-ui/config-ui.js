@@ -719,6 +719,14 @@
     el('mouseMoveFields').hidden = !movement.show;
   }
 
+  // Reflect the transparent keys setting. While it is on the idle background has
+  // nothing to color, so its picker is dimmed rather than left looking broken.
+  function renderTransparentKeys() {
+    const on = activeProfile().theme.transparentKeys === true;
+    el('themeTransparentKeys').checked = on;
+    el('rowKeyIdle').classList.toggle('disabled', on);
+  }
+
   // Movement settings live under mouse.movement, which older configs lack.
   // Everything that writes one goes through here so the block is created once.
   function movementSettings() {
@@ -755,6 +763,7 @@
     renderMovementControls();
 
     el('themePreset').value = p.theme.preset;
+    renderTransparentKeys();
     refreshColorFields();
     el('themeAnimation').value = p.theme.animation;
 
@@ -897,6 +906,15 @@
         Object.assign(activeProfile().theme, colors);
         refreshColorFields();
       }
+      scheduleSave();
+    });
+
+    // Only the idle fill changes; the colors are kept, so switching this back
+    // off restores the keys exactly as they were. A preset change copies colors
+    // only, so it leaves this setting alone.
+    el('themeTransparentKeys').addEventListener('change', (e) => {
+      activeProfile().theme.transparentKeys = e.target.checked;
+      renderTransparentKeys();
       scheduleSave();
     });
 

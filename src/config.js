@@ -112,6 +112,9 @@ function getDefaultConfig() {
             textPressed: '#111111',
             borderIdle: '#2e2e2e',
             borderPressed: '#ffffff',
+            // Draw idle keys and the mouse with no fill, so only the outline and
+            // label show over the scene. Pressed and held keys still fill.
+            transparentKeys: false,
             animation: 'fade',
             keySize: 48,
             keyGap: 6,
@@ -256,6 +259,7 @@ function validateProfile(profile, fallbackName) {
       textPressed: pickColor(themeSafe.textPressed, defaults.theme.textPressed),
       borderIdle: pickColor(themeSafe.borderIdle, defaults.theme.borderIdle),
       borderPressed: pickColor(themeSafe.borderPressed, defaults.theme.borderPressed),
+      transparentKeys: themeSafe.transparentKeys === true,
       animation,
       keySize: clampNumber(themeSafe.keySize, 24, 128, defaults.theme.keySize),
       keyGap: clampNumber(themeSafe.keyGap, 0, 48, defaults.theme.keyGap),

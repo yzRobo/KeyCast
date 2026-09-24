@@ -50,6 +50,18 @@ body {
   background: rgba(0, 0, 0, var(--bg-opacity));
   transform: scale(var(--scale));
   transform-origin: top left;
+  /* The fill behind idle keys and mouse parts. Declared here rather than in
+   * :root so it resolves against the --key-idle that overlay.js sets on this
+   * element; declared in :root it would keep the default color whatever the
+   * theme says. */
+  --key-idle-fill: var(--key-idle);
+}
+
+/* Transparent keys: idle keys and mouse parts drop their fill, leaving only the
+ * outline and label over the scene. Pressed and held states set their own
+ * background, so presses still fill as before. */
+.overlay.transparent-keys {
+  --key-idle-fill: transparent;
 }
 
 /* Shared coordinate space for the keyboard and the mouse. The keyboard sits in
@@ -76,7 +88,7 @@ body {
   justify-content: center;
   padding: 0 6px;
 
-  background: var(--key-idle);
+  background: var(--key-idle-fill);
   color: var(--text-idle);
   border: 1.5px solid var(--border-idle);
   border-radius: 8px;
@@ -156,7 +168,7 @@ body {
   height: calc(var(--key-size) * 2.4);
   border: 1.5px solid var(--border-idle);
   border-radius: calc(var(--key-size) * 0.8) calc(var(--key-size) * 0.8) calc(var(--key-size) * 0.7) calc(var(--key-size) * 0.7);
-  background: var(--key-idle);
+  background: var(--key-idle-fill);
   overflow: hidden;
 }
 
@@ -166,7 +178,7 @@ body {
   top: 0;
   height: 46%;
   width: 50%;
-  background: var(--key-idle);
+  background: var(--key-idle-fill);
   transition: background-color 140ms ease;
 }
 
@@ -193,7 +205,7 @@ body {
   height: 26%;
   border: 1.5px solid var(--border-idle);
   border-radius: 999px;
-  background: var(--key-idle);
+  background: var(--key-idle-fill);
   transition: background-color 140ms ease;
 }
 
@@ -201,11 +213,11 @@ body {
  * half on scroll up, the bottom half on scroll down. The other half keeps the
  * idle color so the wheel shape stays intact. */
 .mouse-wheel.scroll-up {
-  background: linear-gradient(to bottom, var(--key-held) 0 50%, var(--key-idle) 50% 100%);
+  background: linear-gradient(to bottom, var(--key-held) 0 50%, var(--key-idle-fill) 50% 100%);
 }
 
 .mouse-wheel.scroll-down {
-  background: linear-gradient(to bottom, var(--key-idle) 0 50%, var(--key-held) 50% 100%);
+  background: linear-gradient(to bottom, var(--key-idle-fill) 0 50%, var(--key-held) 50% 100%);
 }
 
 /* Middle-button (MMB) click lights the whole wheel. Declared after the scroll
@@ -220,7 +232,7 @@ body {
   left: -1.5px;
   width: 14%;
   height: 14%;
-  background: var(--key-idle);
+  background: var(--key-idle-fill);
   border: 1.5px solid var(--border-idle);
   border-radius: 4px;
   transition: background-color 140ms ease;
@@ -264,7 +276,7 @@ body {
   transform: translate(-50%, -50%);
   border: 1.5px solid var(--border-idle);
   border-radius: 999px;
-  background: var(--key-idle);
+  background: var(--key-idle-fill);
   overflow: hidden;
 }
 

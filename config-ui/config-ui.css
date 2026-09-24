@@ -118,6 +118,13 @@ body {
   margin-top: 2px;
 }
 
+/* A row whose setting has no effect right now, such as the idle key color while
+ * transparent keys is on. */
+.row.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 /* Toggle switch */
 .toggle {
   position: relative;

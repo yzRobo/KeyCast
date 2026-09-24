@@ -161,7 +161,9 @@ Everything is set in the KeyCast window. No file editing needed.
   [Privacy and Security](#privacy-and-security) for what it does and does not
   read.
 - **Theme:** choose a preset, then change any color, the animation, and the size,
-  gap, and scale.
+  gap, and scale. Turn on **Transparent keys** to remove the fill from idle keys
+  and the mouse, so only the outline and label show over your scene. Keys still
+  fill with the pressed color when you press them.
 - **Counters:** turn the keys-per-second display on or off.
 - **Server:** change the port.
 

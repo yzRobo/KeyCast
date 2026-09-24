@@ -94,6 +94,8 @@
 
     overlayEl.classList.remove('theme-minimal-dark', 'theme-minimal-light', 'theme-subtle-glow');
     overlayEl.classList.add('theme-' + theme.preset);
+
+    overlayEl.classList.toggle('transparent-keys', theme.transparentKeys === true);
   }
 
   // Parse a key entry's key string into its parts. A combo joins keys with a
@@ -281,6 +283,72 @@
     stageEl.style.height = height + 'px';
   }
 
+  // With transparent keys the wheel and the side buttons have no fill of their
+  // own, yet they sit on top of the left and right buttons. A pressed button's
+  // fill would show through them: M5 would look pressed whenever the left button
+  // is, and the line between the two buttons would run through the wheel. So cut
+  // the shape of each part that sits on a button out of that button with a clip
+  // path. The shapes are measured from the laid-out page, so they follow the
+  // theme's key size and the stylesheet without repeating its numbers here.
+  function carveMouseButtons() {
+    if (!profile.theme.transparentKeys || mouseEl.hidden) {
+      return;
+    }
+    const parts = [mouseWheelEl, mouseElements.m4, mouseElements.m5].filter(Boolean);
+    for (const btn of [mouseElements.lmb, mouseElements.rmb]) {
+      if (!btn) {
+        continue;
+      }
+      const box = btn.getBoundingClientRect();
+      // Bounding rects include the overlay's scale, but the clip path is drawn in
+      // the button's own unscaled pixels, so divide the scale back out.
+      const scale = box.width / parseFloat(getComputedStyle(btn).width);
+      if (!(scale > 0)) {
+        continue;
+      }
+      // Everything the button paints, drawn clockwise and with room to spare so
+      // rounding can never trim its edge. Holes are added counterclockwise.
+      let path = 'M-10 -10H' + (box.width / scale + 10) + 'V' + (box.height / scale + 10) + 'H-10Z';
+      for (const part of parts) {
+        const r = part.getBoundingClientRect();
+        if (r.right <= box.left || r.left >= box.right || r.bottom <= box.top || r.top >= box.bottom) {
+          continue;
+        }
+        const style = getComputedStyle(part);
+        const w = r.width / scale;
+        const h = r.height / scale;
+        const radius = Math.min(parseFloat(style.borderTopLeftRadius) || 0, w / 2, h / 2);
+        // Stop the fill halfway under the part's border rather than at its outer
+        // edge, so antialiasing can never leave a hairline gap between the two.
+        const inset = (parseFloat(style.borderTopWidth) || 0) / 2;
+        path += roundedRectHole(
+          (r.left - box.left) / scale + inset,
+          (r.top - box.top) / scale + inset,
+          w - inset * 2,
+          h - inset * 2,
+          Math.max(0, radius - inset)
+        );
+      }
+      btn.style.clipPath = 'path("' + path + '")';
+    }
+  }
+
+  // An SVG path for a rounded rectangle, traced counterclockwise. Inside a
+  // clockwise outline, the default nonzero fill rule turns it into a hole.
+  function roundedRectHole(x, y, w, h, r) {
+    const n = (v) => v.toFixed(2);
+    const arc = 'A' + n(r) + ' ' + n(r) + ' 0 0 0 ';
+    return 'M' + n(x + r) + ' ' + n(y) +
+      arc + n(x) + ' ' + n(y + r) +
+      'V' + n(y + h - r) +
+      arc + n(x + r) + ' ' + n(y + h) +
+      'H' + n(x + w - r) +
+      arc + n(x + w) + ' ' + n(y + h - r) +
+      'V' + n(y + r) +
+      arc + n(x + w - r) + ' ' + n(y) +
+      'Z';
+  }
+
   // Render the entire active profile.
   function renderProfile(p) {
     profile = p;
@@ -291,6 +359,7 @@
     // Run after the keyboard and mouse exist and the theme sizes are applied, so
     // the measurements reflect the final layout.
     sizeStage();
+    carveMouseButtons();
   }
 
   // Key press handling. Ignores OS auto-repeat by checking existing state.
